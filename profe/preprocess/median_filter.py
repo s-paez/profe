@@ -24,14 +24,14 @@ class MedianFilter:
     Appy a 3x3-pixel window median filfer to OPTICAM FITS images.
 
     Implements the pixel-wise median filter with a 3x3 window as describred by
-    Paez et al. (2025). This filter removes hot pixels and their induced correlated
+    Paez et al. (in prep.). This filter removes hot pixels and their induced correlated
     noise.
 
     Methods:
         apply_filter():
-        Iterate over each FITS in `data_dir`, appy the 3x3-pixel window median
-        filter, write the corrected image to `output_dir`, and record the filename in
-        `processed` to prevent duplicated work.
+        Iterate over each FITS in ``data_dir``, appy the 3x3-pixel window median
+        filter, write the corrected image to ``output_dir``, and record the filename in
+        ``processed`` to prevent duplicated work.
     """
 
     def __init__(self, ws: int = 3) -> None:
@@ -44,13 +44,13 @@ class MedianFilter:
             ws (int): Size of the square median filter window (ws x ws). 3 by default.
 
         Attributes:
-        base_dir (str): Base directory for input and output
-        data_dir (str): Directory containing organized FITS files to apply the median
-            filter.
-        window_size (int): Dimension of the median filter window.
-        extensions (tuple[str, ...]): Allowed FITS file extensions.
-        logs (str): Directory where log and control files are stored.
-        processed_list_path (str): Path to the hidden file tracking which FITS files
+            base_dir (str): Base directory for input and output
+            data_dir (str): Directory containing organized FITS files to apply the 
+            median filter.
+            window_size (int): Dimension of the median filter window.
+            extensions (tuple[str, ...]): Allowed FITS file extensions.
+            logs (str): Directory where log and control files are stored.
+            processed_list_path (str): Path to the hidden file tracking which FITS files
             have already been corrected with the median filter.
         """
         # Working dir to execute in the folder with the data
