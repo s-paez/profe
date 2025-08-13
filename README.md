@@ -86,11 +86,12 @@ profe/
 │   ├── cli.py
 │   ├── fits_processor.py
 │   └── median_filter.py
-└── postprocess/      # Postprocessing subpackage
+└── output/      # Postprocessing subpackage
     ├── __init__.py
     ├── cli.py
     ├── alt_az_centroid.py
     ├── correlated_noise.py
+    ├── exofop_out.py
     └── light_curves.py
 
 ```
