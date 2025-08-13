@@ -47,7 +47,7 @@ pip install profe
 For a development environment (include testing and linting tools):
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/s-paez/profe.git
 cd profe
 pip install .[dev]
 ```
