@@ -3,12 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-profe documentation
+PROFE Documentation
 ===================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+Profe is a data reduction pipeline for OPTICAM time series photometry of transiting exoplanets. For details see Paez et al. to incorporate AstroImageJ for the reduction and photometry. 
 
 
 .. toctree::
