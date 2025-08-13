@@ -3,7 +3,7 @@
 profe.preprocess
 ================
 
-Módulos de preprocesamiento.
+Preproccesing Modules.
 
 .. automodule:: profe.preprocess.cli
    :members:

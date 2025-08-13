@@ -13,5 +13,6 @@ Profe is a data reduction pipeline for OPTICAM time series photometry of transit
    :maxdepth: 2
    :caption: Contents:
 
-   profe
+   profe.preprocess
+   profe.output
 

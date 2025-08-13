@@ -3,7 +3,7 @@
 profe.output
 ============
 
-Módulos para generación de salidas y gráficos.
+Modules for outputs and plots generation.
 
 .. automodule:: profe.output.exofop_out
    :members:
