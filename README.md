@@ -81,7 +81,6 @@ profe_out
 ```
 profe/
 ├── pyproject.toml    # Build configuration and dependencies
-├── setup.py          # No setup for poetry
 ├── preprocess/       # Preprocessing subpackage
 │   ├── __init__.py
 │   ├── cli.py
