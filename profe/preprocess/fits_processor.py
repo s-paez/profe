@@ -35,7 +35,7 @@ class FitsProcessor:
     3. Summary report
         - Create a `.dat` summary file recording the number of images in each target and
         date folder.
-        
+
     """
 
     def __init__(self) -> None:

@@ -45,7 +45,7 @@ class MedianFilter:
 
         Attributes:
             base_dir (str): Base directory for input and output
-            data_dir (str): Directory containing organized FITS files to apply the 
+            data_dir (str): Directory containing organized FITS files to apply the
             median filter.
             window_size (int): Dimension of the median filter window.
             extensions (tuple[str, ...]): Allowed FITS file extensions.
