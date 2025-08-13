@@ -312,19 +312,19 @@ class LightCurvePlotter:
 
         This method:
             1. Reads the set of already processed (object, date) pairs.
-            2. Iterates through each object folder in `self.data_dir`:
+            2. Iterates through each object folder in ``self.data_dir``:
                 a. Skips non-directory entries.
-                b. Ensures a `measurements/` subfolder exists.
-            3. For each date subfolder under `measurements/`:
+                b. Ensures a ``measurements/`` subfolder exists.
+            3. For each date subfolder under ``measurements/``:
                 a. Skips non-directory entries.
                 b. Checks if the (object, date) combination is alreadty processed.
-                c. obtains all TBL files via `_obtain_tbls()`. Skips if none found.
+                c. obtains all TBL files via ``_obtain_tbls()``. Skips if none found.
                 d. Groups TBLs by processing method and filter band.
-                e. Loads any time intervals via `_load_times().
+                e. Loads any time intervals via ``_load_times()``.
             4. Generates and saves light-curve plots by:
-                a. Method: (`lcs_method` subfolder) using `_create_plot()`.
-                b. Filter: (`lcs_filter` subfolder) using `_create_plot()`.
-            5. Writes out normalized multiband CSVs via `_save_method_csv()`.
+                a. Method: (``lcs_method`` subfolder) using ``_create_plot()``.
+                b. Filter: (``lcs_filter`` subfolder) using ``_create_plot()``.
+            5. Writes out normalized multiband CSVs via ``_save_method_csv()``.
             6. Marks each succesfully completed (object, date) as processed.
 
         Returns:
