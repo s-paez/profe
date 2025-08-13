@@ -1,10 +1,7 @@
 # PROFE: Pipeline de Reducción de OPTICAM para Fotometría de Exoplanetas
 #### Reduction pipeline for OPTICAM photometry of exoplanets.
 
-A Python-based pipeline to automate preprocessing and postprocessing of data acquired
-with the OPTICAM instrument on the 2.1 m telescope at OAN‑SPM, aimed at producing
-calibrated light curves and centroid analyses for transiting exoplanets implementing
-the data reduction methods proposed by Paez et. al (in prep.).
+A Python-based pipeline to automate preprocessing and postprocessing of data acquired with the OPTICAM instrument on the 2.1 m telescope at OAN‑SPM, aimed at producing calibrated light curves and centroid analyses for transiting exoplanets implementing the data reduction methods proposed by Paez et. al (in prep.).
 
 ---
 
@@ -20,6 +17,8 @@ the data reduction methods proposed by Paez et. al (in prep.).
   * Altitude-Azimuth trajectory and centroids and movement in pixels .
   * Generate binned light curves with RMS measurements.
   * Time-averaging curves to see the red noise in the time-series.
+  * Radial profile
+  * Field of View with apertures for targat and comparison stars
 
 ---
 
