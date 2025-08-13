@@ -190,14 +190,16 @@ class AltAzGuidingPlotter:
         This method:
             1. Finds an example FITS file under `obj_dir` to extract RA, DEC, and target
                 name.
-            2. Verifies that a `measurements/` subfolder exists.
-            3. Iterate through each date subdolder under `measurements/`:
+            2. Verifies that a ``measurements/`` subfolder exists.
+            3. Iterate through each date subdolder under ``measurements/``:
+            
                 - Skips non-directory entries
                 - Checks in (object, date) is already processed; if so, logs and
                     continues
-                - Calls `_generate_plot()` to create Alt-Az and centroid movement
+                - Calls ``_generate_plot()`` to create Alt-Az and centroid movement
                     figures.
-                -Records the processed (object, date) pair via `_record_processed()`.
+                -Records the processed (object, date) pair via ``_record_processed()``.
+                
         Args:
             obj_dir (Path): Path to the object folder
 
