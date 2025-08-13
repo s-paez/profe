@@ -66,7 +66,7 @@ profe_pre
 
 ### Outputs
 
-Generate light curves (plots and files), centroid movement plots, Alt-Az trajectory and time-averaging curves for `measurements.tbl` files:
+Generate light curves (plots and files), centroid movement plots, Alt-Az trajectory, Field of View apertures, radial profile and time-averaging curves for `measurements.tbl` files:
 
 ```bash
 profe_out
