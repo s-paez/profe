@@ -73,30 +73,6 @@ profe_out
 ```
 
 
----
-
-## Project Structure
-
-```
-profe/
-├── pyproject.toml    # Build configuration and dependencies
-├── preprocess/       # Preprocessing subpackage
-│   ├── __init__.py
-│   ├── cli.py
-│   ├── fits_processor.py
-│   └── median_filter.py
-└── output/      # Postprocessing subpackage
-    ├── __init__.py
-    ├── cli.py
-    ├── alt_az_centroid.py
-    ├── correlated_noise.py
-    ├── exofop_out.py
-    └── light_curves.py
-
-```
-
----
-
 <!-- ## Development & Contribution
 
 1. Fork the repository.
