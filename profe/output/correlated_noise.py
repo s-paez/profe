@@ -202,9 +202,11 @@ class TimeAveragingPlotter:
         Execute time-averaging analysis and plotting for all objects and dates.
 
         This method performs the following steps for each object in `self.data_dir`:
+        
         1. Skip non-directory entries.
         2. Verify that a `measurements/` subfolder exists; skip otherwise.
         3. For each date subfolder under `measurements/`:
+        
             a. Load optional time-interval definitions via `self.load_times_file()`.
             b. Collect all tbl files named `<obj>_<filter>_<method>.tbl`.
             c. Build a list of (filter, method, path, times) tuples for valid files.
