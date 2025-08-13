@@ -42,7 +42,7 @@ the data reduction methods proposed by Paez et. al (in prep.).
 Install from the project root:
 
 ```bash
-pip install .
+pip install profe
 ```
 
 For a development environment (include testing and linting tools):
