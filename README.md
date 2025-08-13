@@ -25,7 +25,7 @@ A Python-based pipeline to automate preprocessing and postprocessing of data acq
 ## Requirements
 
 * Python ≥ 3.8.20
-* Dependencies defined in `pyproject.toml` / `setup.py`:
+* Dependencies defined in `pyproject.toml`:
 
   * `numpy`$\geq$ 1.24.4
   * `pandas`$\geq$ 2.0.3
