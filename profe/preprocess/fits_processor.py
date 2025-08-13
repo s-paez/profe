@@ -26,15 +26,16 @@ class FitsProcessor:
     This class:
     1. Time updating
         - Compute and add the 'JD' (Julian Date) and 'UTMIDDLE' keywords based on the
-            existing 'UT' and 'EXPOSURE' header values.
+        existing 'UT' and 'EXPOSURE' header values.
 
     2. File organization
         - Sort FITS files into subdirectories according to the 'OBJECT' and 'DATE-OBS'
-            header keywords.
+        header keywords.
 
     3. Summary report
         - Create a `.dat` summary file recording the number of images in each target and
-            date folder.
+        date folder.
+        
     """
 
     def __init__(self) -> None:
@@ -43,7 +44,7 @@ class FitsProcessor:
 
         Args:
             base_dir (str, optional): Root directory to execute the pipeline. If not
-                defined, it is the current working directory.
+            defined, it is the current working directory.
 
         Attributes:
             base_dir (str): Root base for files input and output.
