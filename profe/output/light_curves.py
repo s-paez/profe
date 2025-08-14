@@ -1,9 +1,18 @@
 """
-Light curves plots and CSV files
+Light curve plotting and CSV export for AIJ measurements.
 
-This PROFE's module create plots and CSV files for each measurement AIJ file in each
-target and date folder. It uses times.csv file (if exists or not empty) to use that time
-range to normalize the light curve and compute the time-averaging and the RMS.
+This module generates light curve plots and normalized multiband CSV files
+from AstroImageJ (AIJ) measurement tables (`.tbl`). For each target and
+observation date, it can optionally use a `times.csv` file to define time
+intervals for normalization and RMS calculation.
+
+Outputs include:
+    - Plots binned to a fixed time resolution (default: 10 minutes).
+    - Per-method plots and per-filter plots.
+    - Normalized multiband CSV files containing flux and error columns.
+
+Processed (object, date) pairs are recorded in `logs/.lc_processed.dat` to
+avoid reprocessing.
 """
 
 import logging
@@ -23,26 +32,28 @@ from pandas import DataFrame, Series
 
 class LightCurvePlotter:
     """
-    LightCurvePlotter
+    Generate light curve plots and normalized CSV files from AIJ measurements.
 
-    Save light curves .csv files and binned plots for light curves with RMS values from
-    AIJ measurements in TBL in each object/target folfer in `organized_data`.
-    The plots are organized each object plots/ folder with subforlder for each DATE-OBS
-    It records in logs/.lc_processed.txt those (object, dates) that are already
-    processed to avoid reprocessing files.
+    For each target and date in `organized_data`, this class:
+        - Loads `.tbl` measurement files from `measurements/`.
+        - Optionally applies time-interval selections from `times.csv`.
+        - Creates plots showing both raw and binned light curve data.
+        - Computes and displays RMS values in plot legends.
+        - Saves normalized multiband CSV files combining all filters.
+
+    Processed (object, date) pairs are tracked to avoid duplicate work.
     """
 
     def __init__(self, bin_minutes: int = 10) -> None:
         """
-        Initialize the LightCurvePlotter with directory paths and binning settings.
+        Initialize the light curve plotter.
 
-        This constructor sets up the working directories for logs and organized data,
-        configures the logger, and initializes the file used to track which light curves
-        have been already processed.
+        Sets up working directories, logger, binning configuration, and the
+        processed-state tracking file.
 
         Args:
-            bin_minutes (int): Time interval, in minutes, for binning light-curves data/
-                Defaults to 10 minutes.
+            bin_minutes (int, optional): Time bin size for plots in minutes.
+                Defaults to 10.
         """
         # Directories
         self.base_dir = Path.cwd()
@@ -59,7 +70,14 @@ class LightCurvePlotter:
             self.processed_file.write_text("")
 
     def _load_processed(self) -> Set:
-        """Read logs/.lc_processed.txt and return a tuples set (object, date)."""
+        """
+        Load the set of processed (object, date) pairs.
+
+        Reads `logs/.lc_processed.dat` and returns its contents as a set of tuples.
+
+        Returns:
+            set[tuple[str, str]]: Processed object/date pairs.
+        """
         text: str = self.processed_file.read_text()
         lines: list = text.splitlines()
         processed: set = set()  # To make an iterable object
@@ -74,31 +92,30 @@ class LightCurvePlotter:
 
     def _mark_processed(self, obj: str, date: str) -> None:
         """
-        Add a line to `.lc_processed.dat` with the object and date processed.
+        Record a processed (object, date) pair.
+
+        Appends the pair to `logs/.lc_processed.dat`.
 
         Args:
-            obj (str): Object name
-            date (str): Observation date
-
-        Returns:
-            None
+            obj (str): Target object name.
+            date (str): Observation date in YYYY-MM-DD format.
         """
         with open(self.processed_file, "a") as f:  # Appending mode
             f.write(f"{obj},{date}\n")
 
     def _load_times(self, folder: Path) -> DataFrame | None:
         """
-        Try to load times.csv file
+        Load optional time-interval definitions for RMS calculation.
 
-        Look for a times.csv file in times folder.
-        Otherwise in create the times.csv file and return none
-        It returns the DataFrame of the times.csv
+        Looks for `times/times.csv` under the given folder. If present, loads it
+        into a DataFrame. If missing, creates an empty `times.csv` and returns None.
 
         Args:
-            folder (Path): times folder with times.csv file.
+            folder (Path): Path to the date-specific `measurements/` folder.
 
         Returns:
-            Times DataFrame.
+            Optional[DataFrame]: Time intervals with 'init_time' and 'final_time'
+            columns, or None if not available.
         """
         # Path to the times.csv file in measurements/
         tf: Path = folder / "times" / "times.csv"
@@ -114,40 +131,29 @@ class LightCurvePlotter:
 
     def _obtain_tbls(self, folder: Path) -> list[Path]:
         """
-        Get all measuremts TBL files in `measurements/` folder.
+        List all AIJ measurement table files in a folder.
 
         Args:
-            folder (Path): Path to measurements folder
+            folder (Path): Path to a `measurements/` directory.
 
         Returns:
-            List with all TBL files in measurements/ folder
+            list[Path]: Paths to all `.tbl` files in the folder.
         """
         return [f for f in folder.glob("*.tbl")]
 
     def _save_method_csv(self, date_folder: Path, method: str, filt_dict: Dict) -> None:
         """
-        Save a multiband light curve CSV with normalized flux and error columns.
+        Save a normalized multiband light curve CSV for a processing method.
 
-        For each filter in `filt_dict`, this hidden method:
-
-            1. Computes the median of `rel_flux_T1` and uses it to normalize both
-                `rel_flux_T1` and `rel_flux_err_T1`.
-            2. Builds a DataFrame with columns:
-                - BJD_TDB_<filter>
-                - norm_flux_<filter>
-                - norm_flux_err_<filter>
-            3. Concatenates all filter DataFrames side by side, aligning by index.
-            4. Writes the merged to: `<date_folder>/<method>_norm_gri_lcs.csv`.
+        Normalizes flux and error columns for each filter by the median flux, then
+        merges all filters side by side into a single CSV.
 
         Args:
-            date_folder (Path): Directory where the CSV will be saved.
-            method (str) Binning or processing method name (used as filename prefix).
-            filt_dict (Dict[str, pd.DataFrame]): Mapping from filter name (e.g. 'g',
-                'r', 'i') to its light curve DataFrame. Each DataFrame must contain
-                'BJD_TDB', 'rel_flux_T1', and 'rel_flux_err_T1' columns.
-
-        Returns:
-            None
+            date_folder (Path): Output directory for the CSV.
+            method (str): Processing method name (used in filename).
+            filt_dict (dict[str, DataFrame]): Mapping of filter name to its light
+                curve DataFrame. Each DataFrame must have 'BJD_TDB', 'rel_flux_T1',
+                and 'rel_flux_err_T1' columns.
         """
         frames: list = []
         for filt, df in filt_dict.items():
@@ -184,43 +190,28 @@ class LightCurvePlotter:
         label_value: str,
     ) -> None:
         """
-        Create and save a ligth-curve plot showing raw and binned data with RMS legends.
+        Generate and save a light curve plot with raw and binned data.
 
-        This hidden method generates a single figure that includes:
-            - All individual datapoints plotted with transparency
-            - Binned median points in intervals of `self.bin_minutes`.
-            - Compute RMS in the legend, either over all data or within specific
-                intervals
-            - Vertical lines marking the star and end of each intervall in `times`
-                (if provided)
+        Plots individual points with transparency, binned medians at
+        `self.bin_minutes`, and RMS values in the legend. Optionally marks
+        time-interval boundaries from a `times.csv` file.
 
         Args:
-            obj (str): Name of the object or target
-            date (str): Observation date string
-            datasets(Dict[str, Tuple[pd.DataFrame, str]]): Mapping from a dataset label
-                to a tuple of (DataFrame with 'BJD_TDB', 'rel_flux_T1',
-                'rel_flux_err_T1', color string).
-            times (Optional[pd.DataFrame]): DataFrame with 'init_time' and 'final_time'
-                columns defining time intervals for interval-based RMS calculation and
-                plotting. If None, RMS is global.
-            out_folder (Path): Directory where the output plot will be saved.
-            label_type (str): Descriptor for the kind of label.
-            label_value (str): Specific label value ('g', 'r', 'i'; or 'w3', 'w5', 'w7')
-                to include in title and filename.
-
-        Returns:
-            None
+            obj (str): Target object name.
+            date (str): Observation date.
+            datasets (dict[str, tuple[DataFrame, str]]): Mapping from dataset label
+                to (DataFrame, color).
+            times (Optional[DataFrame]): Optional time intervals for RMS calculation.
+            out_folder (Path): Output directory for the plot.
+            label_type (str): Label descriptor (e.g., 'filter', 'method').
+            label_value (str): Label value for title/filename.
         """
-        # Prepare figure
         fig, ax = plt.subplots(figsize=(10, 6))
         bin_days: float = self.bin_minutes / (24 * 60)
         for label, (df, color) in datasets.items():
-            t: Series = df["BJD_TDB"]  # Time
-            # Normalized flux
+            t: Series = df["BJD_TDB"]
             flux: Series = df["rel_flux_T1"] / df["rel_flux_T1"].median()
-            # Normalized errors
             err: Series = df["rel_flux_err_T1"] / df["rel_flux_T1"].median()
-            # RMS
             rms: float
             rms_txt: str
             median_val: float
@@ -308,24 +299,15 @@ class LightCurvePlotter:
 
     def run(self) -> None:
         """
-        Execute the light-curve processing and plotting stage for all objects and dates.
+        Process all objects and dates to generate light curve outputs.
 
-        This method:
-            1. Reads the set of already processed (object, date) pairs.
-            2. Iterates through each object folder in ``self.data_dir``:
-                a. Skips non-directory entries.
-                b. Ensures a ``measurements/`` subfolder exists.
-            3. For each date subfolder under ``measurements/``:
-                a. Skips non-directory entries.
-                b. Checks if the (object, date) combination is alreadty processed.
-                c. obtains all TBL files via ``_obtain_tbls()``. Skips if none found.
-                d. Groups TBLs by processing method and filter band.
-                e. Loads any time intervals via ``_load_times()``.
-            4. Generates and saves light-curve plots by:
-                a. Method: (``lcs_method`` subfolder) using ``_create_plot()``.
-                b. Filter: (``lcs_filter`` subfolder) using ``_create_plot()``.
-            5. Writes out normalized multiband CSVs via ``_save_method_csv()``.
-            6. Marks each succesfully completed (object, date) as processed.
+        For each unprocessed (object, date):
+            - Load all `.tbl` measurement files.
+            - Group by processing method and filter.
+            - Load optional time intervals.
+            - Generate per-method and per-filter plots.
+            - Save normalized multiband CSV files.
+            - Mark as processed.
 
         Returns:
             None
