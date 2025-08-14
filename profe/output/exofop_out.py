@@ -1,10 +1,14 @@
 """
-Exofop product plots generator
+Generate EXOFOP product plots for OPTICAM observations.
 
-This module generates plots for Exofop data, including aperture visualizations
-and radial profiles for each measurement. It saves these plots in the
-exofop/<DATE-OBS>/ directory for each object, and logs processed (object, date) pairs
-to avoid reprocessing.
+This module creates two products for each target and observation date:
+
+    1) Aperture visualization: overlays source and sky annuli on a science image.
+    2) Radial profile: plots the radial brightness profile (with errors).
+
+Outputs are saved under `exofop/<DATE-OBS>/` inside each object directory. A control
+file (`logs/.exofop_processed.dat`) records processed (object, date) pairs to avoid
+reprocessing.
 """
 
 import logging
@@ -22,23 +26,19 @@ from photutils.profiles import RadialProfile
 
 class ExofopPlotter:
     """
-    ExofopPlotter
+    Create aperture-visualization and radial-profile plots for EXOFOP.
 
-    Save aperture visualization and radial profile plots for each measurement
-    in the organized_data structure. Plots are stored under each object's
-    exofop/<DATE-OBS>/ directory, and processed (object, date) pairs are
-    logged in logs/.exofop_processed.dat to avoid reprocessing.
+    This class scans the `organized_data` tree, builds EXOFOP-ready plots per
+    target and date, and records processed items to prevent duplicate work.
     """
 
     def __init__(self) -> None:
         """
-        Initialize the ExofopPlotter.
+        Initialize directories, logger, and processed-state tracking.
 
-        Sets up directories, logger, and processed file. It uses the current
-        working directory as the base directory and organizes data under
-        "organized_data". The logs are stored in "logs", and processed data
-        is tracked in ".exofop_processed.dat" within the logs directory.
-
+        Sets the base, logs, organized-data, and corrected-data paths; ensures the
+        processed-state file exists; and loads the in-memory set of processed
+        (object, date) pairs.
         """
         # Base and logs directories
         self.base_dir = Path.cwd()
@@ -56,7 +56,13 @@ class ExofopPlotter:
         self.processed = self._load_processed()
 
     def _load_processed(self) -> Set:
-        """Read logs/.exofop_processed.dat and return a set of (object, date)."""
+        """
+        Load processed (object, date) pairs from the control file.
+
+        Returns:
+            set[tuple[str, str]]: Pairs already processed and recorded in
+                `logs/.exofop_processed.dat`.
+        """
         processed: set = set()
         text: str = self.processed_file.read_text()
         for line in text.splitlines():
@@ -69,7 +75,15 @@ class ExofopPlotter:
         return processed
 
     def _mark_processed(self, obj: str, date: str) -> None:
-        """Append (object, date) to the processed-file and update in-memory set."""
+        """
+        Record a processed (object, date) pair.
+
+        Appends the pair to `logs/.exofop_processed.dat` and updates the in-memory set.
+
+        Args:
+            obj (str): Target object name.
+            date (str): Observation date (e.g., 'YYYY-MM-DD').
+        """
         with open(self.processed_file, "a") as f:
             f.write(f"{obj},{date}\n")
         self.processed.add((obj, date))
@@ -77,6 +91,22 @@ class ExofopPlotter:
     def _generate_plots(
         self, obj_dir: Path, date_folder: Path, target_name: str
     ) -> None:
+        """
+        Generate aperture-visualization and radial-profile plots for one date.
+
+        Reads centroid and aperture parameters from the date’s `.tbl` file, selects a
+        representative FITS image for background visualization, and produces:
+
+            - Aperture visualization (source radius and sky annulus overlaid).
+            - Radial profile with uncertainties and aperture markers.
+
+        Plots are saved to `exofop/<DATE-OBS>/`.
+
+        Args:
+            obj_dir (Path): Path to the object directory.
+            date_folder (Path): Path to the date-specific `measurements/` folder.
+            target_name (str): Name used for plot titles and file naming.
+        """
         exofop_dir: Path = obj_dir / "exofop" / date_folder.name
         exofop_dir.mkdir(parents=True, exist_ok=True)
 
@@ -167,7 +197,19 @@ class ExofopPlotter:
         self.logger.info(f"Saved radial profile plot at {rp_path}")
 
     def process_object(self, obj_dir: Path) -> None:
-        """Process one object: find target name from a FITS header and iterate dates."""
+        """
+        Process a single object by iterating over all observation dates.
+
+        Finds a representative FITS to determine the target name, then for each date
+        subfolder under `measurements/`:
+
+            - Skip if already processed.
+            - Generate EXOFOP plots via `_generate_plots`.
+            - Mark the (object, date) pair as processed.
+
+        Args:
+            obj_dir (Path): Path to the object directory within `organized_data`.
+        """
         # Find example FITS for target name
         fits_files: list[Path] = [
             p for ext in ("*.fits", "*.fit") for p in obj_dir.rglob(ext)
@@ -196,7 +238,12 @@ class ExofopPlotter:
             self._mark_processed(obj_dir.name, date_folder.name)
 
     def run(self) -> None:
-        """Iterate all object directories and process each."""
+        """
+        Process all objects found in `organized_data`.
+
+        Iterates over object directories that contain a `measurements/` subfolder and
+        invokes `process_object` for each. Saves outputs under `exofop/<DATE-OBS>/`.
+        """
         self.logger.info("Running Exofop Plotter")
         for obj_dir in self.data_dir.iterdir():
             if not obj_dir.is_dir():
