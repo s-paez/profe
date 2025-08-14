@@ -1,9 +1,10 @@
 """
-Organize and update header of FITS files
+Organize and update headers of FITS files.
 
-This module organize the files moving from `data/` folder to the `organized_data/`
-folder. It also performs the uptate of the files headers and avoid to reprocess all the
-already processed files. It used the 100% of the CPU cores for the multiprocessing.
+This module processes raw FITS files by moving them from the `data/` directory to the
+`organized_data/` directory. It updates relevant FITS headers, skipping files that have
+already been processed to avoid redundant work. Multiprocessing is used to maximize
+performance, utilizing 100% of available CPU cores.
 """
 
 import logging
@@ -21,40 +22,37 @@ logger = logging.getLogger(__name__)
 
 class FitsProcessor:
     """
-    Preprocess files by updating headers, organizing files, and generating summaries.
+    Preprocess FITS by updating headers, organizing files, and generating summaries.
 
-    This class:
-    1. Time updating
-        - Compute and add the 'JD' (Julian Date) and 'UTMIDDLE' keywords based on the
-        existing 'UT' and 'EXPOSURE' header values.
+    This class provides methods to:
+        1. Time updating:
+            - Compute and insert the 'JD' (Julian Date) and 'UTMIDDLE' (mid-exposure UT)
+            keywords based on existing 'UT' and 'EXPOSURE' header values.
 
-    2. File organization
-        - Sort FITS files into subdirectories according to the 'OBJECT' and 'DATE-OBS'
-        header keywords.
+        2. File organization:
+            - Sort FITS files into subdirectories by 'OBJECT' and 'DATE-OBS' keywords.
 
-    3. Summary report
-        - Create a `.dat` summary file recording the number of images in each target and
-        date folder.
+        3. Summary report:
+            - Create a `.dat` file with the number of images per target and date folder.
+
+    Multiprocessing is used to maximize performance, and previously processed files
+    are skipped to avoid redundant work.
 
     """
 
     def __init__(self) -> None:
         """
-        Initialize directory paths and load the list of already processed files.
-
-        Args:
-            base_dir (str, optional): Root directory to execute the pipeline. If not
-            defined, it is the current working directory.
+        Initialize directory paths and load the set of already processed files.
 
         Attributes:
-            base_dir (str): Root base for files input and output.
-            data_dir (str): Directory with raw FITS files.
-            output_dir (str): Directory to save organized files.
-            logs (str): Directory to save log and summary and processed files.
-            processed_list_path (str): Path to the file record processed files.
+            base_dir (str): Root directory for input and output files.
+            data_dir (str): Directory containing raw FITS files.
+            output_dir (str): Directory for saving organized files.
+            logs (str): Directory for log files, summaries, and processed file records.
+            processed_list_path (str): Path to the file recording processed files.
             counts_file (str): Path to the summary file with image counts.
-            extensions (tuple[str, ...]): Valid extensions for FITS files.
-            processed (set[str]): Set of names of already processed files.
+            extensions (tuple[str, ...]): Accepted FITS file extensions.
+            processed (set[str]): Filenames of already processed files.
         """
         # Base path for pipeline working
         self.base_dir = os.getcwd()
@@ -81,15 +79,14 @@ class FitsProcessor:
 
     def _load_processed_files(self) -> set[str]:
         """
-        Load the set of already processed file names.
+        Load the set of filenames for already processed FITS files.
 
-        This private method checks the existence of the file at
-        `self.processed_list_path`. If it exists, it reads each non-empty line, strips
-        surrounding whitespace, and returns a set of filenames. Otherwise, returns an
-        empty set.
+        Reads `self.processed_list_path` if it exists, stripping whitespace from each
+        line and returning the result as a set. Returns an empty set if the file does
+        not exist.
 
         Returns:
-            set[str]: Filenames of FITS files that have already been processed.
+            set[str]: Filenames of processed FITS files.
         """
         # Verify if the processed files list exist
         if os.path.exists(self.processed_list_path):
@@ -102,12 +99,11 @@ class FitsProcessor:
         """
         Recursively collect all FITS files under the data directory.
 
-        This private method traverses `self.data_dir` and returns a list of full file
-        paths for every file whose extension matches one of the entries in
-        `self.extensions`.
+        Traverses `self.data_dir` and returns a list of file paths whose extensions
+        match any in `self.extensions`.
 
         Returns:
-            list[str]: Paths to all FITS files found.
+            list[str]: Full paths to all found FITS files.
         """
         file_list: list = []  # Empy files to put fits_files
         for root, _, files in os.walk(self.data_dir):  # Walk the data dir
@@ -122,22 +118,17 @@ class FitsProcessor:
         """
         Compute and add Julian Date and mid-exposure UT to a FITS header.
 
-        This private method opens the FITS file at `filepath` in update mode, reads the
-        'UT' and 'EXPOSURE' header keywords, and:
-
-        1. Converts 'UT' (ISO format) to an astropy Time object.
-        2. Computes the exposure duration in days from 'EXPOSURE' (seconds).
-        3. Calculates the Julian Date at the start of the exposure (seconds).
-        4. Calculates the mid-exposure time in ISO format ('UTMIDDLE').
-        5. Inserts 'JD' and 'UTMIDDLE' into the header.
-        6. Adds a HISTORY entry noting the update
-        7. Logs success or any warings/errors encountered.
+        Opens a FITS file in update mode, reads the 'UT' and 'EXPOSURE' keywords, and:
+            1. Converts 'UT' (ISO format) to an astropy Time object.
+            2. Calculates exposure duration in days.
+            3. Computes start and mid-exposure Julian Dates.
+            4. Inserts 'JD' (Julian Date at start) and 'UTMIDDLE' (ISO mid-exposure)
+            into the header.
+            5. Adds a HISTORY entry noting the update.
+            6. Logs success or warnings.
 
         Args:
-            file (str): Path to the FITS file to be updated.
-
-        Returns:
-            None
+            file (str): Path to the FITS file.
         """
         try:
             # Open the FITS file in update mode
@@ -183,18 +174,14 @@ class FitsProcessor:
 
     def update_jd_headers(self) -> None:
         """
-        Update JD and UTMIDDLE headers for all FITS files in parallel.
+        Update 'JD' and 'UTMIDDLE' headers for all FITS files in parallel.
 
-        This method performs the following steps:
-            1. Collects all FITS file paths via `self._gather_fits_files()`.
-            2. If no files are found, logs and error, log a message, and exists.
-            3. Otherwise, log the number of files and CPU cores used.
-            4. Uses a multiprocessing Pool to apply the private method
-                `_add_jd_to_files` to each method.
-            5. Displays a tqdm progress bar during processing.
-
-        Returns:
-            None
+        Steps:
+            1. Collect all FITS file paths.
+            2. Skip if no files are found.
+            3. Log file count and number of CPU cores used.
+            4. Use multiprocessing to apply `_add_jd_to_files` to each file.
+            5. Display progress with a tqdm progress bar.
         """
         file_list: list = self._gather_fits_files()  # The FITS files not yet corrected
         if len(file_list) == 0:  # Verify if there is no new FITS files to JD updating
@@ -218,26 +205,19 @@ class FitsProcessor:
 
     def organize_files(self) -> None:
         """
-        Move files to object/date folders and makes 'measurements' and 'lcs' subfolders.
+        Organize FITS files into object/date folders and create subdirectories.
 
-        This methods performs the following steps:
-        1. Collect all FITS file paths via `self._gather_fits_files()`.
-        2. Skip arealdy processed files in `self.processed`.
-        3. For each new FITS file in the list:
-            a. Read 'OBJECT' and 'DATE-OBS' from the header ('IMGTYPE' if 'OBJECT' is
-                empty).
-            b. Use the date string for folder naming.
-            c. Create a target directory at `output_dir/OBJECT/DATE`.
-            d. If the object is not a calibration frame, create `/measurements/DATE` and
-                `/lcs/DATE` subfolders under `output_dir/OBJECT`.
-            e. Move the FITS file into the target directory.
-            f. Lof the move, append the filename to `processed_list_path`, and add it to
-                `self.processed`.
-        4. After organizing all files, log a summary of how many files were
-            organized
-
-        Returns:
-            None
+        Steps:
+            1. Gather all FITS file paths.
+            2. Skip already processed files.
+            3. For each new file:
+                a. Read 'OBJECT' and 'DATE-OBS' (fallback to 'IMGTYPE' if no 'OBJECT' ).
+                b. Create `OBJECT/DATE` directory in `output_dir`.
+                c. For non-calibration FITS, create `measurements/DATE`, `lcs/DATE`, and
+                `exofop` subdirectories.
+                d. Move the file to the target directory.
+                e. Record it as processed.
+            4. Log the total number of moved files.
         """
         file_list: list = self._gather_fits_files()  # FITS file list
         new_count = 0
@@ -309,18 +289,13 @@ class FitsProcessor:
 
     def generate_counts(self) -> None:
         """
-        Summary file.
+        Generate a summary of image counts per object and date.
 
-        Generate a summary report of image counts per object per observation night.
-        This method scans the organized output directory (`self.output_dir`) for each
-        object folder and its date subfolders. It counts the number of files in each
-        date folder and writes a summary table to `self.counts_file`.
+        Scans `self.output_dir` for object/date folders and counts the number of
+        files in each date directory. Writes the results to `self.counts_file` in
+        columns:
 
-        The summary file has columns:
-        OBEJCT  DATE    COUNT
-
-        Returns:
-            None
+            OBJECT   DATE    COUNT
         """
         with open(self.counts_file, "w") as cf:  # Open the counts file in writting mode
             # Write the first raw

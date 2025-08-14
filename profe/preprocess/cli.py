@@ -31,18 +31,18 @@ def main() -> None:
     """
     Executes the preprocessing pipeline.
 
-    The preprocessing involves updating FITS headers, organizing files, 
+    The preprocessing involves updating FITS headers, organizing files,
     generating summary files, and applying a median filter.
 
     Steps:
-    
+
         1. Initialize a FitsProcessor object.
         2. Update the Julian Date headers.
         3. Organize the files into the correct directory structure.
         4. Generate the `summary.dat` file with counts.
         5. Initialize a MedianFilter object.
         6. Apply the median filter with a 3x3-pixel window size.
-        
+
     """
     org: FitsProcessor = FitsProcessor()  # Load the Organize_and_JD class
     org.update_jd_headers()  # Update the headers

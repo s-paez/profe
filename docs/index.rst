@@ -6,7 +6,7 @@
 PROFE Documentation
 ===================
 
-Profe is a data reduction pipeline for OPTICAM time series photometry of transiting exoplanets. For details see Paez et al. to incorporate AstroImageJ for the reduction and photometry. 
+Profe is a data reduction pipeline for OPTICAM time series photometry of transiting exoplanets. For details see Paez et al. to incorporate AstroImageJ for the reduction and photometry.
 
 
 .. toctree::
