@@ -1,5 +1,3 @@
-from sphinx.ext.autodoc.directive import AUTODOC_DEFAULT_OPTIONS
-
 """Configuration file for the Sphinx documentarion builder"""
 
 import os
@@ -21,13 +19,6 @@ autodoc_mock_imports = [
     "matplotlib",
     "mc3",
 ]
-
-AUTODOC_DEFAULT_OPTIONS = {
-    "members": True,
-    "undoc-members": True,
-    "show-inheritance": True,
-    "inherited-members": True,
-}
 
 project = "profe"
 copyright = "2025, S. Paez, Y. Gómez Maqueo Chew, L. H. Hebb"
