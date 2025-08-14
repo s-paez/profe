@@ -1,9 +1,9 @@
 """
-This module implements the 3x3-pixel window size median filter to each raw image
+Apply a 3x3-pixel median filter to raw science images.
 
-As proposed by Paez et al.(2025) OPTICAM science images with exposures longer than
-10s need a hot-pixel correction. This correction is performed by a 3x3-box size
-median filter.
+As proposed by Paez et al. (2025), OPTICAM science images with exposure times
+longer than 10 seconds require hot-pixel correction. This module implements
+that correction using a median filter with a 3x3-pixel window.
 """
 
 import logging
@@ -21,37 +21,37 @@ logger = logging.getLogger(__name__)
 
 class MedianFilter:
     """
-    Appy a 3x3-pixel window median filfer to OPTICAM FITS images.
+    Apply a median filter to OPTICAM FITS images.
 
-    Implements the pixel-wise median filter with a 3x3 window as describred by
-    Paez et al. (in prep.). This filter removes hot pixels and their induced correlated
-    noise.
+    This class implements a pixel-wise median filter with a configurable
+    square window (default 3×3) as described by Paez et al. (in prep.). The
+    filter removes hot pixels and mitigates correlated noise in OPTICAM
+    science images.
 
     Methods:
         apply_filter():
-        Iterate over each FITS in ``data_dir``, appy the 3x3-pixel window median
-        filter, write the corrected image to ``output_dir``, and record the filename in
-        ``processed`` to prevent duplicated work.
+            Iterate over all eligible FITS files, apply the median filter,
+            save the corrected images, and track processed files to avoid
+            duplicate work.
     """
 
     def __init__(self, ws: int = 3) -> None:
         """
-        Initizalize the median filter with directory paths and filter settings.
+        Initialize the median filter with directory paths and filter settings.
 
         Args:
-            base_dir (str, optional): Root directory for data and logs. If None, uses
-                the current working directory. None by default.
-            ws (int): Size of the square median filter window (ws x ws). 3 by default.
+            ws (int, optional): Size of the square median filter window (ws x ws).
+                Defaults to 3.
 
         Attributes:
-            base_dir (str): Base directory for input and output
-            data_dir (str): Directory containing organized FITS files to apply the
-            median filter.
+            base_dir (str): Base directory for input and output.
+            data_dir (str): Directory containing organized FITS files to be
+                processed.
             window_size (int): Dimension of the median filter window.
-            extensions (tuple[str, ...]): Allowed FITS file extensions.
-            logs (str): Directory where log and control files are stored.
-            processed_list_path (str): Path to the hidden file tracking which FITS files
-            have already been corrected with the median filter.
+            extensions (tuple[str, ...]): Accepted FITS file extensions.
+            logs (str): Directory for log and control files.
+            processed_list_path (str): Path to the hidden file that tracks which
+                FITS files have already been median-filtered.
         """
         # Working dir to execute in the folder with the data
         self.base_dir = os.getcwd()
@@ -72,25 +72,22 @@ class MedianFilter:
 
     def _process_image(self, args: list) -> Any | None:
         """
-        Process one FITS by applying a median filter and saving the corrected file.
+        Apply a median filter to a single FITS image and save the result.
 
-        This method unpacks a tuple of (image_path, output_path, window_size), opens the
-        FITS file at `image_path`, applies a SciPy median filter of size
-        `window_size` x `window_size` with reflective edges, and writes out a new FITS
-        file preserbing the original header to `output_path`. Any errors are printed and
-        logged without interrupting the pipeline.
-        Function to processes each image with the median filter
+        Opens the input FITS file, applies a SciPy median filter of size
+        `window_size` x `window_size` with reflective edges, and writes a new
+        FITS file with the same header to the output path.
 
         Args:
             args (tuple):
-            image_path (str): Path to the input FITS file
-            output_path (str): Path where the filtered FITS file will be saved.
-            window_size (int): Side length (in pixels) of the square filter window
+                image_path (str): Path to the input FITS file.
+                output_path (str): Path where the filtered FITS file will be saved.
+                window_size (int): Side length (in pixels) of the square filter
+                    window.
 
-        Retunrns:
-            Optional[str]:
-                The original `image_path` if processing succeeded;  `None` if an error
-                ocurred.
+        Returns:
+            Optional[str]: The original `image_path` if processing succeeded,
+            otherwise None.
         """
         # Args
         image_path, output_path, window_size = args
@@ -124,24 +121,19 @@ class MedianFilter:
 
     def apply_filter(self) -> None:
         """
-        Apply a median filter to all new FITS images in parallel and track the progress.
+        Apply the median filter to all unprocessed FITS files in parallel.
 
-        This method performs the following steps:
-            1. Loads the set of already processed file paths in
-                `self.processed_list_path`.
-            2. Walks through `self.data_dir` to find FITS files matching
-                `self.extensions`.
-            3. Skips files already recorded as processed
-            4. For each new file, constructs an outputh path under
-                `corrected_{window_size}x{window_size}` while preserving subdirectory
+        Steps:
+            1. Load the list of already processed files from `processed_list_path`.
+            2. Walk through `data_dir` to find FITS files matching `extensions`.
+            3. Skip files already processed.
+            4. For each new file, construct the output path under
+            `corrected_{window_size}x{window_size}`, preserving the subdirectory
             structure.
-            5. Uses a multiprocessing Pool with all available CPU cores to apply
-                `_process_image` to each file, displaying progress via `tqdm`.
-            6. Appends succesfully processed file paths to `self.processed_list_path`.
-            7. Logs and prints a summary of the operation.
-
-        Returns:
-            None
+            5. Use multiprocessing with all available CPU cores to run
+            `_process_image` in parallel, showing progress with `tqdm`.
+            6. Append successfully processed file paths to `processed_list_path`.
+            7. Log a summary of the operation.
         """
         # Verify if the processed_list exist
         processed_files: set
