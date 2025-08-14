@@ -1,11 +1,14 @@
 """
-AltAz Trajectory and star-centroid movement
+Alt-Az trajectory and star-centroid movement plotting.
 
-This module Creates a polar plot with the trajectory of the target star in the sky
-during the observation in alt azimutal coordinate system.
+This module generates two diagnostic plots for OPTICAM time-series photometry:
 
-It also creates a star-centroid movement plot that show how many pixels the
-star-centroid moved during the time series.
+    1. A polar plot of the target star's trajectory in the sky during an observation
+       night, using the altitude-azimuth coordinate system.
+    2. A star-centroid movement plot showing the change in pixel position of the
+       centroid throughout the time series.
+
+These plots are useful for evaluating tracking performance and guiding stability.
 """
 
 import logging
@@ -26,18 +29,17 @@ from pandas import DataFrame, Series
 
 class AltAzGuidingPlotter:
     """
-    Generate Alt-Az and centroid movement plots for OPTICAM time series photometry.
+    Generate Alt-Az and centroid movement plots for OPTICAM time-series photometry.
 
-    This class scans the `organized_data/OBJECT/DATE-OBS/` directory structure, computes
-    the telescope pointing (altitude, azimuth) and star-centroid shifts for each
-    sequence of FITS images, and saves two plots per observation:
+    This class scans the `organized_data/OBJECT/DATE-OBS/` directory structure,
+    computes the telescope pointing (altitude, azimuth) and centroid shifts for
+    each sequence of FITS images, and saves two plots per observation night:
 
-        1. Altitude vs. time and Azimuth vs. time in polar projection
-        2. XY centroid movement (in pixels) vs. time.
+        1. Altitude vs. time and Azimuth vs. time in polar projection.
+        2. XY centroid displacement (in pixels) vs. time.
 
-    A hidden control file at `.Alt-Az_and_guiding.dat` tracks which target/date
-    combinations have already been plotted, so rerunning the pipeline does not
-    regenerate existing plots.
+    A hidden control file (`.Alt-Az_and_guiding.dat`) tracks processed
+    (target, date) combinations to avoid regenerating existing plots.
     """
 
     def __init__(
@@ -46,14 +48,17 @@ class AltAzGuidingPlotter:
         site_lon: float = -115.4637,  # OAN SPM longitude
     ) -> None:
         """
-        Initialize the AltAzGudingPlotter for generating pointing and guiding plots.
+        Initialize the AltAzGuidingPlotter instance.
 
-        Set up directory paths, load the list of already processed target/dates, and
-        configures the observatory location for Alt-Az computation.
+        Sets up directory paths, loads the list of already processed (object, date)
+        entries, and configures the observatory location for altitude–azimuth
+        calculations.
 
         Args:
-            site_lat (float): Observatory latitude in decimal degrees (OAN-SPM default)
-            site_lon (float): Observatory longitude in decimal degrees (OAN-SPM default)
+            site_lat (float, optional): Observatory latitude in decimal degrees.
+                Defaults to OAN-SPM latitude (31.0439°).
+            site_lon (float, optional): Observatory longitude in decimal degrees.
+                Defaults to OAN-SPM longitude (-115.4637°).
         """
         # Use the working directory. It will be the same dir where the profe_pre runs
         self.base_dir = Path.cwd()
@@ -76,11 +81,10 @@ class AltAzGuidingPlotter:
 
     def _load_processed(self) -> set:
         """
-        Load processed object/date entries from the log file.
+        Load processed object/date entries from the control log.
 
-        This hidden method reads `self.log_file`, where each line is expected to contain
-        an object name and an observation date separated by a comma. It returns a set of
-        (object, date) tuples for all valid entries.
+        Reads the hidden log file (`self.log_file`) and parses lines containing
+        an object name and an observation date separated by a comma.
 
         Returns:
             set[tuple[str, str]]: A set of (object, date) pairs already processed.
@@ -95,7 +99,16 @@ class AltAzGuidingPlotter:
         return processed
 
     def _record_processed(self, obj_name: str, date: str) -> None:
-        """Write in the logs file processed objects and dates"""
+        """
+        Record a processed object/date pair in the control log.
+
+        Appends the given (object, date) pair to the log file and updates the
+        `self.processed` set.
+
+        Args:
+            obj_name (str): Target object name.
+            date (str): Observation date in YYYY-MM-DD format.
+        """
         with open(self.log_file, "a") as f:  # Open the log file in `appending` mode
             f.write(f"{obj_name},{date}\n")
         self.processed.add((obj_name, date))
@@ -104,28 +117,21 @@ class AltAzGuidingPlotter:
         self, obj_dir: Path, date_folder: Path, RA: float, DEC: float, target_name: str
     ) -> None:
         """
-        Generate and save Alt-Az and centroid movement plots for a given target/date.
+        Generate and save Alt-Az and centroid movement plots for one observation.
 
-        This hidden method:
-            1. Reads the first TBL in `date_folder` containing time, JD, and centroid
-                data
-            2. Computes altitude and azimuth from the provided RA/DEC at each
-                observation time.
-            3. Creates a polar plot of azimuth vs. altitude.
-            4. Computes XY centroid offsets relative to the first frame.
-            5. Creates a plot of centroid movement vs. BJD_TDB.
-            6. Saves both figures under
-                `obj_dir/"plots"/date_folder.name/"AltAz_and_guiding"`.
+        Reads centroid and timing data from the `.tbl` file in `date_folder`,
+        computes the target's altitude–azimuth coordinates for each timestamp,
+        and produces:
 
-            Args:
-                obj_dir (Path): Path to the object directory
-                date_folder (Path): Path to de specific date directory
-                RA (float): Right ascension of the target in hours.
-                DEC (flotat): Declination of the target in degrees.
-                target_name (str): Identifier for plot titles and filenames.
+            1. A polar plot of azimuth vs. altitude.
+            2. A plot of centroid displacement in X and Y pixels vs. time.
 
-            Returns:
-                None
+        Args:
+            obj_dir (Path): Path to the object directory.
+            date_folder (Path): Path to the specific date directory.
+            RA (float): Right ascension of the target in hours.
+            DEC (float): Declination of the target in degrees.
+            target_name (str): Identifier for plot titles and filenames.
         """
         # Output dir
         plot_dir: Path = obj_dir / "plots" / date_folder.name / "AltAz_and_guiding"
@@ -185,26 +191,21 @@ class AltAzGuidingPlotter:
 
     def process_object(self, obj_dir: Path) -> None:
         """
-        Process a single object directory by generating plots for each observation date.
+        Generate plots for all observation dates of a single object.
 
-        This method:
-            1. Finds an example FITS file under `obj_dir` to extract RA, DEC, and target
-                name.
-            2. Verifies that a ``measurements/`` subfolder exists.
-            3. Iterate through each date subdolder under ``measurements/``:
+        Finds an example FITS file to extract RA, DEC, and target name, then
+        iterates through all date folders in `measurements/` to produce plots.
 
-                - Skips non-directory entries
-                - Checks in (object, date) is already processed; if so, logs and
-                    continues
-                - Calls ``_generate_plot()`` to create Alt-Az and centroid movement
-                    figures.
-                -Records the processed (object, date) pair via ``_record_processed()``.
+        Steps:
+            1. Verify FITS files exist in `obj_dir`.
+            2. Extract RA, DEC, and OBJECT from FITS header.
+            3. For each date folder in `measurements/`:
+                - Skip if already processed.
+                - Generate plots using `_generate_plots()`.
+                - Record the processed (object, date) in the log.
 
         Args:
-            obj_dir (Path): Path to the object folder
-
-        Returns:
-            None
+            obj_dir (Path): Path to the object folder.
         """
         # Look a .fit file to take RA/DEC header keywords
         fits_files: list[Path] = list(obj_dir.rglob("*.fit"))
@@ -241,11 +242,10 @@ class AltAzGuidingPlotter:
 
     def run(self) -> None:
         """
-        Iterate over all objects in the organized data directory and generate plots.
+        Process all objects in the organized data directory.
 
-        This method scans each subdirectory under `self.data_dir`. For every
-        directory that contains a `measurements/` subfolder, it calls
-        `self.process_object()` to produce the Alt-Az and centroid movement plots.
+        Scans each subdirectory under `self.data_dir`. If it contains a
+        `measurements/` subfolder, calls `process_object()` to generate plots.
 
         Returns:
             None

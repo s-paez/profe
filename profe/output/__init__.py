@@ -1,11 +1,18 @@
 """
-Outputs module
+PROFE output plotting module.
 
-This PROFE's module create and save the following plots:
-    - Alt azimutal trajectory of the target star in each observation ngiht
-    - Star centroid movement plot
-    - Time-averaging curves
-    - Light curves: plots and csv files
+This package generates and saves key plots and data products from the
+PROFE pipeline, including:
+
+    - Alt-azimuth trajectory of the target star for each observation night.
+    - Star centroid motion plots.
+    - Time-averaging curves for noise characterization.
+    - Light curves, including plots and CSV exports.
+
+Classes:
+    AltAzGuidingPlotter: Generates alt-azimuth and centroid plots.
+    TimeAveragingPlotter: Produces time-averaging noise curves.
+    LightCurvePlotter: Creates light curve plots and corresponding CSV files.
 """
 
 from .alt_az_centroid import AltAzGuidingPlotter
