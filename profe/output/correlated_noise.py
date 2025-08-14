@@ -1,10 +1,13 @@
 """
-Time-averaging analysis for the light curves.
+Time-averaging noise analysis for light curves.
 
-This module performs the time-averaging analysis of the light curve (or a no-transit nor
-stellar-contaminated regions if times.csv file exist for a given target and night)
+This module computes the root mean square (RMS) of light-curve residuals as a
+function of bin size to characterize correlated (red) noise. For each target and
+observation night, it uses either the full light curve or user-defined, non-transit
+time intervals provided via a `times.csv` file.
 
-It uses the MC3 package prosed by Cubillos et. al (2017).
+The analysis follows the time-averaging method proposed by Cubillos et al. (2017)
+using the MC3 package.
 """
 
 import logging
@@ -23,35 +26,25 @@ class TimeAveragingPlotter:
     """
     Perform time-averaging noise analysis and generate red-noise plots.
 
-    This class processes all measurements TBLs for each object and observation date in
-    the `organized_data` directory. For each light curve it computes the RMS of the
-    residuals as a function of time-bin size, compares the results to the expectation
-    for the white noise, and produces red-noise plots illustrating correlated noise at
-    different time scales.
+    This class iterates over all objects and dates in the `organized_data` directory,
+    computing RMS-vs.-bin-size curves for each filter and photometric method. The
+    results are plotted and saved to disk, with dashed lines indicating the expected
+    white-noise scaling.
     """
 
     def __init__(self) -> None:
         """
-        Initialize TimeAveragingPlotter with directory paths and processing settings.
+        Initialize the time-averaging plotter.
 
-        It sets up:
-        - The base working directory.
-        - The location of organized measurement TBLs.
-        - The number of parallel processes to use.
-        - The directory for logs and output plots.
-        - A logger for status messages.
+        Sets directory paths, determines the number of CPU cores for parallel
+        processing, and configures the logger.
 
         Attributes:
-            base_dir (Path):
-                Current working directory where the pipeline is executed.
-            data_dir (Path):
-                Directory containing per-object, per-date `measurements/` TBL files.
-            n_processes (int):
-                Number of CPU cores to use for parallel processing.
-            log_dir (Path):
-                Directory where log files and red-noise plots will be saved.
-            logger (logging.Logger):
-                Logger instance for informational and error messages.
+            base_dir (Path): Working directory where the pipeline is executed.
+            data_dir (Path): Directory containing organized measurement TBL files.
+            n_processes (int): Number of CPU cores for parallel processing.
+            log_dir (Path): Directory where log files and output plots are saved.
+            logger (logging.Logger): Logger instance for status and error messages.
         """
         self.base_dir = Path.cwd()
         self.data_dir = self.base_dir / "organized_data"
@@ -61,23 +54,18 @@ class TimeAveragingPlotter:
 
     def load_times_file(self, date_dir: Path) -> DataFrame | None:
         """
-        Load the first time-interval CSV for filtering data.
+        Load an optional CSV defining time intervals to include in the analysis.
 
-        This method looks for a subdirectory named 'times' under 'measurements folder',
-        and attempts to read the first CSV file found there. The CSV is expected to
-        contain at least two columns: 'init_time' and 'final_time'. If the 'times'
-        directory does not exist, contains no CSV files, or the first CSV is empty,
-        the method returns None to indicate that no time-based mask should be
-        applied (i.e., use all data points).
+        If a `times` subfolder exists under the given date directory, this method
+        reads the first CSV file found. The file must contain `init_time` and
+        `final_time` columns. If the folder or CSV is missing or empty, returns None.
 
         Args:
-            date_dir (Path): Path to the directory for a specific observation date,
-                            which may contain a 'times' subfolder.
+            date_dir (Path): Path to the date-specific observation folder.
 
         Returns:
-            Optional[DataFrame]:
-                A DataFrame with 'init_time' and 'final_time' columns if a valid
-                CSV is found; otherwise, None.
+            Optional[DataFrame]: DataFrame with time intervals, or None if no
+            valid CSV is found.
         """
         times_dir: Path = date_dir / "times"
         if not times_dir.exists() or not times_dir.is_dir():
@@ -100,23 +88,18 @@ class TimeAveragingPlotter:
 
     def mask(self, data: DataFrame, times: DataFrame | None) -> Any:
         """
-        Generate a mask with rows whose 'BJD_TDB' value falls within any time interval.
+        Create a boolean mask for data points within the specified time intervals.
 
-        If `times` is None, returns an array of all True values.
+        If `times` is None, returns an array of True values for all rows.
 
         Args:
-            data (DataFrame):
-                Input DataFrame containing a 'BJD_TDB' column of Julian Dates.
-            times (Optional[DataFrame]):
-                DataFrame with 'init_time' and 'final_time' columns defining inclusion
-                intervals.
-                Each row represents one interval [init_time, final_time]. If None, no
-                masking is applied.
+            data (DataFrame): Data containing a 'BJD_TDB' column.
+            times (Optional[DataFrame]): Time intervals with 'init_time' and
+                'final_time' columns.
 
         Returns:
-            NDArray[np.bool_]:
-                Boolean array of length len(data), where True indicates the
-                corresponding row's 'BJD_TDB' lies within at least one interval.
+            NDArray[np.bool_]: Boolean mask where True means the row is inside at
+            least one interval.
         """
         if times is None:
             mask: Any = np.ones(len(data), dtype=bool)
@@ -130,40 +113,27 @@ class TimeAveragingPlotter:
 
     def process_filter_method(self, args: tuple) -> tuple:
         """
-        Compute time-averaged noise metrics for a single filter-method TBL.
+        Compute time-averaging noise metrics for one filter–method combination.
 
-        This private method processes a light-curve TBL by:
-            1. Reading the file into a DataFrame.
-            2. Applying a boolean mask (`self.mask`) to select data within specified
-                time intervals.
-            3. Normalizing the 'rel_flux_T1' values by their median.
-            4. Computing residuals as 1 minus the normalized flux.
-            5. Running `ms.time_avg` on the residuals to obtain:
-                - RMS (`rms`)
-                - Lower RMS uncertainty (`rmslo`)
-                - Upper RMS uncertainty (`rmshi`)
-                - Standard error (`stderr`)
-                - Bin sizes (`binszmc`)
-            6. Packaging the results into a summary DataFrame with columns:
-                `{filter}-{method}-rms`, `{filter}-{method}-rmslo`,
-                `{filter}-{method}-rmshi`, `{filter}-{method}-stderr`, and
-                `{filter}-{method}-binszmc`.
-            7. Logging the operation and returning `(filter, method, summary_df)`.
+        Reads a light-curve TBL file, optionally applies a time mask, normalizes
+        the flux, calculates residuals, and uses `mc3.stats.time_avg` to compute:
 
-            If masking removes all data, returns `(filter, method, empty DataFrame)`.
+            - RMS
+            - Lower RMS uncertainty
+            - Upper RMS uncertainty
+            - Standard error
+            - Bin sizes
 
         Args:
-            args (tuple):
-                fil (str): Filter name (e.g., 'g', 'r', 'i').
-                meth (str): Method identifier.
-                tbl_path (str or Path): Path to the light-curve TBL file.
-                times (DataFrame or None): Optional DataFrame with 'init_time' and
-                'final_time' columns defining intervals for time-based masking.
+            args (tuple): (filter, method, tbl_path, times) where:
+                filter (str): Photometric filter name.
+                method (str): Photometric extraction method.
+                tbl_path (Path): Path to the TBL file.
+                times (Optional[DataFrame]): Time intervals for masking.
 
         Returns:
-            tuple[str, str, DataFrame]:
-                A tuple containing the filter name, method name, and a DataFrame of
-                time-averaging results.
+            tuple[str, str, DataFrame]: Filter, method, and the computed metrics
+            as a DataFrame.
         """
         fil, meth, tbl_path, times = args
         df: DataFrame = pd.read_table(tbl_path, encoding="latin1", sep="\t")
@@ -199,24 +169,14 @@ class TimeAveragingPlotter:
 
     def run(self) -> None:
         """
-        Execute time-averaging analysis and plotting for all objects and dates.
+        Run the time-averaging analysis for all objects and dates.
 
-        This method performs the following steps for each object in `self.data_dir`:
-
-        1. Skip non-directory entries.
-        2. Verify that a `measurements/` subfolder exists; skip otherwise.
-        3. For each date subfolder under `measurements/`:
-
-            a. Load optional time-interval definitions via `self.load_times_file()`.
-            b. Collect all tbl files named `<obj>_<filter>_<method>.tbl`.
-            c. Build a list of (filter, method, path, times) tuples for valid files.
-            d. Use a multiprocessing Pool (size `self.n_processes`) to apply
-                `self.process_filter_method()` to each tuple.
-            e. Aggregate the returned DataFrames by filter into `time_avgs`.
-            f. For each filter, generate a red-noise plot of RMS vs. bin size:
-                - Error bars for RMS with lower/upper uncertainties.
-                - Dashed lines for standard error.
-                - Save figure under `plots/<date>/time-avg/`.
+        For each target and observation date:
+            1. Load optional time intervals from a CSV.
+            2. Identify all TBL files and parse their filter/method names.
+            3. Process each filter–method combination in parallel.
+            4. Aggregate results by filter.
+            5. Generate red-noise plots and save them to disk.
 
         Returns:
             None
