@@ -25,9 +25,9 @@ class FitsProcessor:
     Preprocess FITS by updating headers, organizing files, and generating summaries.
 
     This class provides methods to:
+
         1. Time updating:
-            - Compute and insert the 'JD' (Julian Date) and 'UTMIDDLE' (mid-exposure UT)
-            keywords based on existing 'UT' and 'EXPOSURE' header values.
+            - Compute and insert the 'JD' (Julian Date) and 'UTMIDDLE' (mid-exposure UT) keywords based on existing 'UT' and 'EXPOSURE' header values.
 
         2. File organization:
             - Sort FITS files into subdirectories by 'OBJECT' and 'DATE-OBS' keywords.
@@ -119,6 +119,7 @@ class FitsProcessor:
         Compute and add Julian Date and mid-exposure UT to a FITS header.
 
         Opens a FITS file in update mode, reads the 'UT' and 'EXPOSURE' keywords, and:
+
             1. Converts 'UT' (ISO format) to an astropy Time object.
             2. Calculates exposure duration in days.
             3. Computes start and mid-exposure Julian Dates.
@@ -177,11 +178,13 @@ class FitsProcessor:
         Update 'JD' and 'UTMIDDLE' headers for all FITS files in parallel.
 
         Steps:
+
             1. Collect all FITS file paths.
             2. Skip if no files are found.
             3. Log file count and number of CPU cores used.
             4. Use multiprocessing to apply `_add_jd_to_files` to each file.
             5. Display progress with a tqdm progress bar.
+
         """
         file_list: list = self._gather_fits_files()  # The FITS files not yet corrected
         if len(file_list) == 0:  # Verify if there is no new FITS files to JD updating
@@ -213,11 +216,12 @@ class FitsProcessor:
             3. For each new file:
                 a. Read 'OBJECT' and 'DATE-OBS' (fallback to 'IMGTYPE' if no 'OBJECT' ).
                 b. Create `OBJECT/DATE` directory in `output_dir`.
-                c. For non-calibration FITS, create `measurements/DATE`, `lcs/DATE`, and
-                `exofop` subdirectories.
+                c. For non-calibration FITS, create `measurements/DATE`, `lcs/DATE`, and `exofop` subdirectories.
                 d. Move the file to the target directory.
                 e. Record it as processed.
+
             4. Log the total number of moved files.
+
         """
         file_list: list = self._gather_fits_files()  # FITS file list
         new_count = 0

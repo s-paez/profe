@@ -9,4 +9,4 @@ This module:
 from .fits_processor import FitsProcessor
 from .median_filter import MedianFilter
 
-__all__: list[str] = ["FitsProcessor", "MedianFilter"]
+# __all__: list[str] = ["FitsProcessor", "MedianFilter"]

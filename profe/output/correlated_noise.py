@@ -98,7 +98,7 @@ class TimeAveragingPlotter:
                 'final_time' columns.
 
         Returns:
-            NDArray[np.bool_]: Boolean mask where True means the row is inside at
+            np.ndarray: Boolean mask where True means the row is inside at
             least one interval.
         """
         if times is None:

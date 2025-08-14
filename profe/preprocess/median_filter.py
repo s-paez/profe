@@ -24,15 +24,9 @@ class MedianFilter:
     Apply a median filter to OPTICAM FITS images.
 
     This class implements a pixel-wise median filter with a configurable
-    square window (default 3×3) as described by Paez et al. (in prep.). The
+    square window (default 3x3) as described by Paez et al. (in prep.). The
     filter removes hot pixels and mitigates correlated noise in OPTICAM
     science images.
-
-    Methods:
-        apply_filter():
-            Iterate over all eligible FITS files, apply the median filter,
-            save the corrected images, and track processed files to avoid
-            duplicate work.
     """
 
     def __init__(self, ws: int = 3) -> None:
@@ -41,17 +35,17 @@ class MedianFilter:
 
         Args:
             ws (int, optional): Size of the square median filter window (ws x ws).
-                Defaults to 3.
+            Defaults to 3.
 
         Attributes:
             base_dir (str): Base directory for input and output.
             data_dir (str): Directory containing organized FITS files to be
-                processed.
+            processed.
             window_size (int): Dimension of the median filter window.
             extensions (tuple[str, ...]): Accepted FITS file extensions.
             logs (str): Directory for log and control files.
             processed_list_path (str): Path to the hidden file that tracks which
-                FITS files have already been median-filtered.
+            FITS files have already been median-filtered.
         """
         # Working dir to execute in the folder with the data
         self.base_dir = os.getcwd()
@@ -127,11 +121,8 @@ class MedianFilter:
             1. Load the list of already processed files from `processed_list_path`.
             2. Walk through `data_dir` to find FITS files matching `extensions`.
             3. Skip files already processed.
-            4. For each new file, construct the output path under
-            `corrected_{window_size}x{window_size}`, preserving the subdirectory
-            structure.
-            5. Use multiprocessing with all available CPU cores to run
-            `_process_image` in parallel, showing progress with `tqdm`.
+            4. For each new file, construct the output path under `corrected_{window_size}x{window_size}`, preserving the subdirectory structure.
+            5. Use multiprocessing with all available CPU cores to run `_process_image` in parallel, showing progress with `tqdm`.
             6. Append successfully processed file paths to `processed_list_path`.
             7. Log a summary of the operation.
         """

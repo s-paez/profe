@@ -1,4 +1,5 @@
 from sphinx.ext.autodoc.directive import AUTODOC_DEFAULT_OPTIONS
+
 """Configuration file for the Sphinx documentarion builder"""
 
 import os
@@ -18,14 +19,14 @@ autodoc_mock_imports = [
     "astropy",
     "photutils",
     "matplotlib",
-    'mc3',
+    "mc3",
 ]
 
 AUTODOC_DEFAULT_OPTIONS = {
-    'members': True,
-    'undoc-members': True,
-    'show-inheritance': True,
-    'inherited-members': True,
+    "members": True,
+    "undoc-members": True,
+    "show-inheritance": True,
+    "inherited-members": True,
 }
 
 project = "profe"
