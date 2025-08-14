@@ -23,16 +23,17 @@ A Python-based pipeline to automate preprocessing and postprocessing of data acq
 ---
 
 ## Requirements
+Dependencies defined in `pyproject.toml`:
 
-* Python ≥ 3.8.20
-* Dependencies defined in `pyproject.toml`:
-
-  * `numpy`$\geq$ 1.24.4
-  * `pandas`$\geq$ 2.0.3
-  * `astropy`$\geq$ 5.2.2
-  * `matplotlib`$\geq$ 3.7.5
-  * `tqdm`$\geq$ 4.67.1
-  * `mc3`$\geq$ 3.1.5
+* Python ($\geq 3.8.20$, $\leq 3.12$)
+* astropy ($5.3.2$)
+* scipy ($\geq 1.10$, $<2.0$)
+* matplotlib ($\geq3.10.3$, $<4.0.0$)
+* tqdm ($\geq 4.67.1$, $<5.0.0$)
+* pandas ($\geq 2.3.1$, $<3.0.0$)
+* mc3 ($\geq 3.2.1$, $<4.0.0$)
+* photutils ($\geq 2.2.0$, $<3.0.0$)
+* numpy ($\geq 1.24$, $<2.0$)
 
 ---
 
