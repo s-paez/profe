@@ -8,13 +8,10 @@ build:
 
 sphinx:
   configuration: docs/conf.py
-  # Ponlo en true si quieres que un warning rompa el build:
   fail_on_warning: false
 
 python:
   install:
-    # Instala tu paquete para que autodoc pueda importarlo
     - method: pip
       path: .
-    # Dependencias de la documentación
     - requirements: docs/requirements.txt
