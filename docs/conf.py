@@ -11,6 +11,15 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+# Dependencies Mock just in en Read the Docs
+if os.environ.get("READTHEDOCS") == "True":
+    autodoc_mock_imports = [
+        "astropy",
+        "photutils",
+        "matplotlib",
+    ]
+
+
 project = "profe"
 copyright = "2025, S. Paez, Y. Gómez Maqueo Chew, L. H. Hebb"
 author = "S. Paez, Y. Gómez Maqueo Chew, L. H. Hebb"
