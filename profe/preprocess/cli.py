@@ -1,9 +1,9 @@
 """
-Main() function for the preprocess module
+Main function for the preprocess module.
 
-This module also set the log file.
+This module also sets the log file.
 
-The logical order is needed
+The logical order of execution is required.
 """
 
 import logging
@@ -29,15 +29,20 @@ logger.info("Running PROFE-prepocess")
 
 def main() -> None:
     """
-    Main() function for the preprocessing
+    Executes the preprocessing pipeline.
+
+    The preprocessing involves updating FITS headers, organizing files, 
+    generating summary files, and applying a median filter.
 
     Steps:
-        1. Initialize FitsProcessor() object
-        2. Apply the update_jd_headers
-        3. Organize the files
-        4. Genernate the summary.dat file
-        5. Initialize MedianFilter() object
-        6. Apply the median filter with the 3x3-pixel window size
+    
+        1. Initialize a FitsProcessor object.
+        2. Update the Julian Date headers.
+        3. Organize the files into the correct directory structure.
+        4. Generate the `summary.dat` file with counts.
+        5. Initialize a MedianFilter object.
+        6. Apply the median filter with a 3x3-pixel window size.
+        
     """
     org: FitsProcessor = FitsProcessor()  # Load the Organize_and_JD class
     org.update_jd_headers()  # Update the headers
