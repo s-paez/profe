@@ -1,10 +1,19 @@
 """
-Comman Line Interface to execute the output modules
+Command-line interface for generating PROFE output products.
 
-This PROFE's module implement the AltAzGuidingPlotter, TimeAveragingPlotter, and
-LightCurvePlotter classes to crate all the PROFE's outputs
+This module coordinates the execution of all PROFE output-generating classes,
+including:
 
-TO DO: Outputs for the Exofop submission
+    - AltAzGuidingPlotter: Generates alt-azimuth and guiding (centroid) plots.
+    - LightCurvePlotter: Produces light curves and corresponding CSV files.
+    - TimeAveragingPlotter: Creates time-averaging plots for correlated noise
+      analysis.
+    - ExofopPlotter: Generates plots and products for EXOFOP submission.
+
+Logs are saved to `logs/profe_out.log`.
+
+TODO:
+    Implement additional outputs for EXOFOP submission.
 """
 
 import logging
@@ -31,7 +40,21 @@ logger.info("Running PROFE-outputs")
 
 
 def main() -> None:
-    """The main fucntion that apply each output method"""
+    """
+    Run all PROFE output modules sequentially.
+
+    Executes each output-generating class in order to produce all standard
+    plots and data products for the PROFE pipeline.
+
+    Steps:
+        1. Run AltAzGuidingPlotter to produce alt-azimuth and centroid plots.
+        2. Run LightCurvePlotter to generate light curve plots and CSV files.
+        3. Run TimeAveragingPlotter to create time-averaging noise plots.
+        4. Run ExofopPlotter to prepare EXOFOP submission plots.
+
+    Returns:
+        None
+    """
     ag_plotter: AltAzGuidingPlotter = AltAzGuidingPlotter()  # AltAz and Guiding plotter
     ag_plotter.run()
 
