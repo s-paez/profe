@@ -5,13 +5,14 @@ A Python-based pipeline to automate preprocessing and postprocessing of data acq
 
 ---
 
-## Features
+## Use
 
 * **Preprocessing** (`profe_pre`):
 
   * Organize and standardize FITS files.
   * Update headers and compute Julian Date.
   * Apply median filter
+* Once the data have been preprocessed with `profe`, it is time to perform data reduction and photometry with AstroImageJ and save the measurements tables in `.tbl` format.  
 * **Postprocessing** (`profe_out`):
 
   * Plot of altitude-azimuth trajectory and centroids and movement in pixels .
