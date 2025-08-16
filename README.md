@@ -10,15 +10,15 @@ A Python-based pipeline to automate preprocessing and postprocessing of data acq
 * **Preprocessing** (`profe_pre`):
 
   * Organize and standardize FITS files.
-  * Update headers and compute Julian Dates.
+  * Update headers and compute Julian Date.
   * Apply median filter
 * **Postprocessing** (`profe_out`):
 
-  * Altitude-Azimuth trajectory and centroids and movement in pixels .
+  * Plot of altitude-Azimuth trajectory and centroids and movement in pixels .
   * Generate binned light curves with RMS measurements.
-  * Time-averaging curves to see the red noise in the time-series.
-  * Radial profile
-  * Field of View with apertures for targat and comparison stars
+  * Time-averaging curves with the red and white noise in the time-series.
+  * Radial profile for target star
+  * Field of View with apertures for target and comparison stars
 
 ---
 
