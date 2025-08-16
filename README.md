@@ -14,7 +14,7 @@ A Python-based pipeline to automate preprocessing and postprocessing of data acq
   * Apply median filter
 * **Postprocessing** (`profe_out`):
 
-  * Plot of altitude-Azimuth trajectory and centroids and movement in pixels .
+  * Plot of altitude-azimuth trajectory and centroids and movement in pixels .
   * Generate binned light curves with RMS measurements.
   * Time-averaging curves with the red and white noise in the time-series.
   * Radial profile for target star
