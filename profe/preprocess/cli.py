@@ -44,10 +44,10 @@ def main() -> None:
     6. Apply the median filter with a 3x3-pixel window size.
 
     """
-    org: FitsProcessor = FitsProcessor()  # Load the Organize_and_JD class
-    org.update_jd_headers()  # Update the headers
-    org.organize_files()  # Organize the files
-    org.generate_counts()  # Create the summary files
+    org: FitsProcessor = FitsProcessor()
+    org.update_jd_headers()
+    org.organize_files()
+    org.generate_counts()
 
-    mf: MedianFilter = MedianFilter()  # Load thr MedianFilter class
-    mf.apply_filter()  # Apply the filter
+    mf: MedianFilter = MedianFilter()
+    mf.apply_filter()
