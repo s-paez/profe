@@ -27,7 +27,7 @@ class FitsProcessor:
     This class provides methods to:
 
         1. Time updating:
-            - Compute and insert the 'JD' (Julian Date) and 'UTMIDDLE' (mid-exposure UT) keywords based on existing 'UT' and 'EXPOSURE' header values.
+            - Compute and insert the 'JD' and 'UTMIDDLE' based on existing 'UT' and 'EXPOSURE' header values.
 
         2. File organization:
             - Sort FITS files into subdirectories by 'OBJECT' and 'DATE-OBS' keywords.
