@@ -117,14 +117,14 @@ class MedianFilter:
         else:
             processed_files = set()
 
-        args: list = [] 
+        args: list = []
 
         for dirpath, _, filenames in os.walk(self.data_dir):
             for filename in filenames:
                 if filename.endswith(self.extensions):
                     image_path: str = os.path.join(dirpath, filename)
                     if image_path in processed_files:
-                        continue 
+                        continue
 
                     relative_path: str = os.path.relpath(dirpath, self.data_dir)
                     output_folder: str = os.path.join(
