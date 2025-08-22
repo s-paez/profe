@@ -55,10 +55,10 @@ def main() -> None:
     Returns:
         None
     """
-    ag_plotter: AltAzGuidingPlotter = AltAzGuidingPlotter()  # AltAz and Guiding plotter
+    ag_plotter: AltAzGuidingPlotter = AltAzGuidingPlotter()
     ag_plotter.run()
 
-    lc_plotter: LightCurvePlotter = LightCurvePlotter()  # Light Curve plotter
+    lc_plotter: LightCurvePlotter = LightCurvePlotter()
     lc_plotter.run()
 
     avg_plotter: TimeAveragingPlotter = TimeAveragingPlotter()
