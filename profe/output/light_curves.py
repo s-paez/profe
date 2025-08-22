@@ -88,7 +88,7 @@ class LightCurvePlotter:
             parts: list = [p.strip() for p in line.split(",")]
             if len(parts) == 2:
                 processed.add((parts[0], parts[1]))
-        return processed  # This is a set() object over one can interate
+        return processed
 
     def _mark_processed(self, obj: str, date: str) -> None:
         """
@@ -100,7 +100,7 @@ class LightCurvePlotter:
             obj (str): Target object name.
             date (str): Observation date in YYYY-MM-DD format.
         """
-        with open(self.processed_file, "a") as f:  # Appending mode
+        with open(self.processed_file, "a") as f:
             f.write(f"{obj},{date}\n")
 
     def _load_times(self, folder: Path) -> DataFrame | None:
@@ -117,7 +117,6 @@ class LightCurvePlotter:
             Optional[DataFrame]: Time intervals with 'init_time' and 'final_time'
             columns, or None if not available.
         """
-        # Path to the times.csv file in measurements/
         tf: Path = folder / "times" / "times.csv"
         if tf.exists():
             return pd.read_csv(tf)
@@ -161,7 +160,6 @@ class LightCurvePlotter:
             norm: Series = df["rel_flux_T1"] / df["rel_flux_T1"].median()
             err: Series = df["rel_flux_err_T1"] / df["rel_flux_T1"].median()
 
-            # Build DataFrame for this filter
             tmp = pd.DataFrame(
                 {
                     f"BJD_TDB_{filt}": df["BJD_TDB"],
@@ -170,9 +168,7 @@ class LightCurvePlotter:
                 }
             )
             frames.append(tmp)
-        # Concat side by side (aligns by index; filters may have different lengths)
         df_merged: DataFrame = pd.concat(frames, axis=1)
-        # Ensure output directory exists
         os.makedirs(date_folder, exist_ok=True)
         out_csv: Path = date_folder / f"{method}_norm_gri_lcs.csv"
         df_merged.to_csv(out_csv, index=False)
@@ -254,10 +250,6 @@ class LightCurvePlotter:
             bt_arr: NDArray[np.float64] = grp["t"].median().to_numpy(dtype=np.float64)
             bf_arr: NDArray[np.float64] = grp["f"].median().to_numpy(dtype=np.float64)
 
-            # t_arr: NDArray[np.float64] = grp["t"].to_numpy(dtype=np.float64)
-            # f_arr: NDArray[np.float64] = grp["f"].to_numpy(dtype=np.float64)
-            # e_arr: NDArray[np.float64] = grp["e"].to_numpy(dtype=np.float64)
-
             sum_e2: pd.Series = grp["e"].apply(lambda x: np.sum(x**2))
             count_e: pd.Series = grp["e"].count()
             be_arr: NDArray[np.float64] = np.sqrt(
@@ -281,7 +273,6 @@ class LightCurvePlotter:
                     ax.axvline(i, linestyle="-.", color="g", alpha=0.7)
                     ax.axvline(f, linestyle="-.", color="g", alpha=0.7)
 
-        # legends
         h, leg = ax.get_legend_handles_labels()
         by_label: dict = dict(zip(leg, h))
         ax.legend(by_label.values(), by_label.keys())
@@ -312,7 +303,7 @@ class LightCurvePlotter:
         Returns:
             None
         """
-        processed: set = self._load_processed()  # Verify processed lcs
+        processed: set = self._load_processed()
 
         for obj_folder in sorted(self.data_dir.iterdir()):
             if not obj_folder.is_dir():
@@ -389,9 +380,7 @@ class LightCurvePlotter:
                         label_value=filtr,
                     )
 
-                # Save the light curve CSV files
                 for method, filt_dict in data.items():
                     lcs_folder: Path = lcs_root / date
                     self._save_method_csv(lcs_folder, method, filt_dict)
-                # Record it as a processed date
                 self._mark_processed(obj, date)
