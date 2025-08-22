@@ -47,21 +47,14 @@ class MedianFilter:
             processed_list_path (str): Path to the hidden file that tracks which
             FITS files have already been median-filtered.
         """
-        # Working dir to execute in the folder with the data
         self.base_dir = os.getcwd()
-        # Dir with the organized data, sama name that used in the organizing script
         self.data_dir = os.path.join(self.base_dir, "organized_data")
-        # The window size. It is in 3x3 as default but easily changed with `ws` param
         self.window_size = ws
-        # Different FITS extensions
         self.extensions = (".fit", ".fits", ".FIT", ".FITS")
-        # Logs dir to save al the control files
         self.logs = os.path.join(self.base_dir, "logs")
-        # Path to the hiden corrected list of files, just for control
         self.processed_list_path = os.path.join(
             self.logs, f".corrected_files_{ws}x{ws}.dat"
         )
-        # Log the starting point
         logger.info("Starting to apply median filter")
 
     def _process_image(self, args: list) -> Any | None:
@@ -83,33 +76,24 @@ class MedianFilter:
             Optional[str]: The original `image_path` if processing succeeded,
             otherwise None.
         """
-        # Args
         image_path, output_path, window_size = args
 
-        # Try environment to manage error without interrupting the process
         try:
-            with fits.open(image_path) as hdul:  # Open the fits
+            with fits.open(image_path) as hdul:
                 data = hdul[0].data  # type: ignore[attr-defined]
                 header = hdul[0].header  # type: ignore[attr-defined]
 
                 # Sciypy median filter
                 corrected_data = median_filter(data, size=window_size, mode="reflect")
-                # Create the output directory
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-                # Create a new FITS with the same header but with corrected data
                 hdu: fits.PrimaryHDU = fits.PrimaryHDU(
                     data=corrected_data, header=header
                 )
-                # Save the new FITS in the output data
-                # Overwrite in case older corrected version of the frame
                 hdu.writeto(output_path, overwrite=True)
-                # Log the corrected file name
                 logger.info(f"{image_path}: Corredted with median filter")
-            return image_path  # So we know which one was processed
-
+            return image_path
         except Exception as e:
-            # Log the possible errora
             logger.warning(f"{image_path} skipped due to {e}")
             return None
 
@@ -126,43 +110,31 @@ class MedianFilter:
             6. Append successfully processed file paths to `processed_list_path`.
             7. Log a summary of the operation.
         """
-        # Verify if the processed_list exist
         processed_files: set
         if os.path.exists(self.processed_list_path):
-            # If yes it open the file as a reader
             with open(self.processed_list_path, "r") as f:
-                # Put each line a set() object to iterate
                 processed_files = set(line.strip() for line in f)
         else:
             processed_files = set()
 
-        args: list = []  # Arguments for the _process_image() fuction
+        args: list = [] 
 
-        # Walk all the data_dir
         for dirpath, _, filenames in os.walk(self.data_dir):
             for filename in filenames:
-                # Verify FITS extensions to avoid errors
                 if filename.endswith(self.extensions):
-                    # The complete path to each file
                     image_path: str = os.path.join(dirpath, filename)
                     if image_path in processed_files:
-                        continue  # Verify if tt is already processed
+                        continue 
 
-                    # Relative path of the data folder
                     relative_path: str = os.path.relpath(dirpath, self.data_dir)
-                    # The complete output folfer with the NxN window size
                     output_folder: str = os.path.join(
                         self.base_dir,
                         "corrected_" + f"{self.window_size}x{self.window_size}",
                         relative_path,
                     )
-                    # Output path for each file
                     output_path: str = os.path.join(output_folder, filename)
-                    # Arguments for the _process_image() function
                     args.append((image_path, output_path, self.window_size))
 
-        # Apply median filter in parallel (with all available) CPU cores and show the
-        # progress with tqdm
         with Pool(processes=cpu_count()) as pool:
             imap: IMapIterator = pool.imap_unordered(self._process_image, args)
             results: list = [
@@ -175,12 +147,10 @@ class MedianFilter:
                 if r is not None
             ]
 
-        # Save the results
-        with open(self.processed_list_path, "a") as f:  # `appending mode` of the list
+        with open(self.processed_list_path, "a") as f:
             for file_path in results:
                 if file_path is not None:
                     f.write(file_path + "\n")
 
-        # Log the final of the process saving the processed_files
         msg: str = f"{len(results)} processed files. List: {self.processed_list_path}"
         logger.info(msg)
