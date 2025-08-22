@@ -221,7 +221,6 @@ class TimeAveragingPlotter:
                     self.logger.warning(msg)
                     continue
 
-                # Build argument list for multiprocessing
                 filters = set(sorted(filters))
                 methods = set(sorted(methods))
                 args: list = [
@@ -244,7 +243,6 @@ class TimeAveragingPlotter:
                 cmap: plt.Colormap = plt.get_cmap("Paired")
                 colors: dict = {m: cmap(i % cmap.N) for i, m in enumerate(methods)}
 
-                # Prepare output directory for time-avg plots
                 out_root: Path = obj_dir / "plots" / date_dir.name / "time-avg"
                 out_root.mkdir(parents=True, exist_ok=True)
 
