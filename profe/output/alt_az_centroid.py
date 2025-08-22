@@ -44,7 +44,7 @@ class AltAzGuidingPlotter:
 
     def __init__(
         self,
-        site_lat: float = 31.0439,  # OAN SPM latitude
+        site_lat: float = 31.0439,  # OAN SPM latitude HARD-SCRIPT
         site_lon: float = -115.4637,  # OAN SPM longitude
     ) -> None:
         """
@@ -60,23 +60,12 @@ class AltAzGuidingPlotter:
             site_lon (float, optional): Observatory longitude in decimal degrees.
                 Defaults to OAN-SPM longitude (-115.4637°).
         """
-        # Use the working directory. It will be the same dir where the profe_pre runs
         self.base_dir = Path.cwd()
-        # Dir of organized data
         self.data_dir = self.base_dir / "organized_data"
-        # Dir of logs
         self.log_dir = self.base_dir / "logs"
-
-        # Log file path
         self.log_file = self.log_dir / ".Alt-Az_and_guiding.dat"
-
-        # OAN-SPM coordinate to Alt-Az computation
         self.location = EarthLocation(lat=site_lat * u.deg, lon=site_lon * u.deg)
-
-        # Objects and data aready processed
         self.processed = self._load_processed()
-
-        # Logger para mensajes informativos
         self.logger = logging.getLogger(__name__)
 
     def _load_processed(self) -> set:
@@ -89,13 +78,12 @@ class AltAzGuidingPlotter:
         Returns:
             set[tuple[str, str]]: A set of (object, date) pairs already processed.
         """
-        # Iterable object set()
         processed: set = set()
         if self.log_file.exists():
             for line in self.log_file.read_text().splitlines():
                 parts: list = [p.strip() for p in line.split(",")]
                 if len(parts) == 2:
-                    processed.add((parts[0], parts[1]))  # [0] object and [1] date
+                    processed.add((parts[0], parts[1]))
         return processed
 
     def _record_processed(self, obj_name: str, date: str) -> None:
@@ -109,7 +97,7 @@ class AltAzGuidingPlotter:
             obj_name (str): Target object name.
             date (str): Observation date in YYYY-MM-DD format.
         """
-        with open(self.log_file, "a") as f:  # Open the log file in `appending` mode
+        with open(self.log_file, "a") as f: 
             f.write(f"{obj_name},{date}\n")
         self.processed.add((obj_name, date))
 
@@ -133,7 +121,6 @@ class AltAzGuidingPlotter:
             DEC (float): Declination of the target in degrees.
             target_name (str): Identifier for plot titles and filenames.
         """
-        # Output dir
         plot_dir: Path = obj_dir / "plots" / date_folder.name / "AltAz_and_guiding"
         plot_dir.mkdir(parents=True, exist_ok=True)
 
@@ -207,23 +194,20 @@ class AltAzGuidingPlotter:
         Args:
             obj_dir (Path): Path to the object folder.
         """
-        # Look a .fit file to take RA/DEC header keywords
         fits_files: list[Path] = list(obj_dir.rglob("*.fit"))
 
-        # Waring for no FITS files
         if not fits_files:
             self.logger.warning(f"No FITS file in {obj_dir.name}. Skipping.")
             return
-        example: Path = fits_files[0]  # Just one FITS to take the RA DEC
+        example: Path = fits_files[0] 
         with fits.open(example) as hdul:
             hdr = hdul[0].header  # type: ignore[attr-defined]
             RA = hdr.get("RA")
             DEC = hdr.get("DEC")
             target = hdr.get("OBJECT", obj_dir.name)
 
-        # Measurements path
         measurements_root: Path = obj_dir / "measurements"
-        if not measurements_root.exists():  # Verify measurements dir exists
+        if not measurements_root.exists():
             self.logger.warning(f"No measurements for {obj_dir.name}. Skipping.")
             return
 
@@ -231,12 +215,11 @@ class AltAzGuidingPlotter:
             if not date_folder.is_dir():
                 continue
             key: tuple[str, str] = (obj_dir.name, date_folder.name)
-            if key in self.processed:  # Verify processed object and dates
+            if key in self.processed: 
                 msg: str = f"{key} already processed"
                 self.logger.info(msg)
                 continue
 
-            # Generate the plos
             self._generate_plots(obj_dir, date_folder, RA, DEC, target)
             self._record_processed(obj_dir.name, date_folder.name)
 
