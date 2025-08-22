@@ -40,18 +40,15 @@ class ExofopPlotter:
         processed-state file exists; and loads the in-memory set of processed
         (object, date) pairs.
         """
-        # Base and logs directories
         self.base_dir = Path.cwd()
         self.logs_dir = self.base_dir / "logs"
         self.data_dir = self.base_dir / "organized_data"
         self.corrected = self.base_dir / "corrected_3x3"
 
-        # Processed-file setup
         self.processed_file = self.logs_dir / ".exofop_processed.dat"
         if not self.processed_file.exists():
             self.processed_file.write_text("")
 
-        # Logger
         self.logger = logging.getLogger(__name__)
         self.processed = self._load_processed()
 

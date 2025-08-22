@@ -11,7 +11,7 @@ A Python-based pipeline to automate preprocessing and postprocessing of data acq
 
   * Organize and standardize FITS files.
   * Update headers and compute Julian Date.
-  * Apply median filter 
+  * Apply median filter
 * **Postprocessing** (`profe_out`):
 
   * Plot of altitude-azimuth trajectory and centroids and movement in pixels .
@@ -64,8 +64,8 @@ Organize raw data from `data/` directory into the `organized_data/` directory, u
 ```bash
 profe_pre
 ```
-### AstroImageJ 
-Once the data have been preprocessed with `profe`, it is time to perform data reduction and photometry with AstroImageJ and save the measurements tables in `.tbl` format. 
+### AstroImageJ
+Once the data have been preprocessed with `profe`, it is time to perform data reduction and photometry with AstroImageJ and save the measurements tables in `.tbl` format.
 
 ### Outputs
 

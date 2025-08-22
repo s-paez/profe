@@ -16,7 +16,7 @@ Modules for outputs and plots generation.
    :undoc-members:
    :show-inheritance:
    :inherited-members:
-   
+
 .. automodule:: profe.output.exofop_out
    :members:
    :undoc-members:
