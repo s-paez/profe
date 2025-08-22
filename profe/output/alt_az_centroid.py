@@ -97,7 +97,7 @@ class AltAzGuidingPlotter:
             obj_name (str): Target object name.
             date (str): Observation date in YYYY-MM-DD format.
         """
-        with open(self.log_file, "a") as f: 
+        with open(self.log_file, "a") as f:
             f.write(f"{obj_name},{date}\n")
         self.processed.add((obj_name, date))
 
@@ -199,7 +199,7 @@ class AltAzGuidingPlotter:
         if not fits_files:
             self.logger.warning(f"No FITS file in {obj_dir.name}. Skipping.")
             return
-        example: Path = fits_files[0] 
+        example: Path = fits_files[0]
         with fits.open(example) as hdul:
             hdr = hdul[0].header  # type: ignore[attr-defined]
             RA = hdr.get("RA")
@@ -215,7 +215,7 @@ class AltAzGuidingPlotter:
             if not date_folder.is_dir():
                 continue
             key: tuple[str, str] = (obj_dir.name, date_folder.name)
-            if key in self.processed: 
+            if key in self.processed:
                 msg: str = f"{key} already processed"
                 self.logger.info(msg)
                 continue
