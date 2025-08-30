@@ -83,11 +83,11 @@ We welcome contributions to improve **PROFE**! Please follow these steps to ensu
 
 1. **Fork the repository** on GitHub and clone your fork locally:
    ```bash
-   git clone https://github.com/<your-username>/profe.git
+   git clone https://github.com/<username>/profe.git
    cd profe
 2. **Create a new branch** for your feature of bugfix:
    ```bash
-   git checkout -b feat/my-awesome-feature
+   git checkout -b feat/new-feature
    git checkout -b fix/issue-123
 3. Install development dependencies:
    ```bash
