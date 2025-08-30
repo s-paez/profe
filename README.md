@@ -5,7 +5,7 @@ A Python-based pipeline to automate preprocessing and postprocessing of data acq
 
 ---
 
-## Feature
+## Features
 
 * **Preprocessing** (`profe_pre`):
 
@@ -75,28 +75,33 @@ Generate light curves (plots and files), centroid movement plots, Alt-Az traject
 profe_out
 ```
 
+---
 
-<!-- ## Development & Contribution
+## Development & Contribution
 
-1. Fork the repository.
-2. Create a branch for your feature or fix:
+We welcome contributions to improve **PROFE**! Please follow these steps to ensure a smooth process:
 
+1. **Fork the repository** on GitHub and clone your fork locally:
    ```bash
-   ```
-
-git checkout -b feature/awesome-feature
-
-````
-3. Write tests under `tests/` and ensure they pass:
+   git clone https://github.com/<your-username>/profe.git
+   cd profe
+2. **Create a new branch** for your feature of bugfix:
    ```bash
-pytest
-````
+   git checkout -b feat/my-awesome-feature
+   git checkout -b fix/issue-123
+3. Install development dependencies:
+   ```bash
+   pip install -e ".[dev]"
+4. **Enable and run pre-commit hooks** (for code style and quality checks):
+   ```bash
+   pre-commit install
+   pre-commit run --all-files
+5. **Commit and push** your changes to your fork
+6. **Open a Pull Request** from your fork to the main repository. In your PR description:
+    - Explain the what and why of the change
+    - Reference related issues 
 
-4. Format code with `black` and sort imports with `isort`.
-5. Open a pull request describing your changes.
-
---- -->
-
+---
 ## License
 
 This project is licensed under the **MIT License**. See the `LICENSE` file for details.
