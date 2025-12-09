@@ -24,6 +24,9 @@ dependencies = [
     "numpy (>=1.24,<2.0)",
 ]
 
+[tool.poetry]
+exclude = ["example"]
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
