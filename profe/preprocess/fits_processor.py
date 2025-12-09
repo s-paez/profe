@@ -149,7 +149,7 @@ class FitsProcessor:
                 header["JD"] = (t.jd, "Julian Date at start of observation")
                 header["UTMIDDLE"] = (time_jdmid.iso, "UT at middle of exposure")
 
-                header.add_history("YGMC/SPA added JD and UTMIDDLE at mid-exposure")
+                header.add_history("PROFE added JD to mid of obs and UTMIDDLE")
 
             logger.info(f"{file}: JD updated")
         except Exception as e:
