@@ -13,18 +13,7 @@ import os
 from .fits_processor import FitsProcessor
 from .median_filter import MedianFilter
 
-# Make the logs dir
-os.makedirs("logs", exist_ok=True)
-# Config thr logging
-logging.basicConfig(
-    filename="logs/profe_pre.log",
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s: %(message)s",
-)
 
-logger = logging.getLogger(__name__)
-
-logger.info("Running PROFE-prepocess")
 
 
 def main() -> None:
@@ -44,6 +33,18 @@ def main() -> None:
     6. Apply the median filter with a 3x3-pixel window size.
 
     """
+    # Make the logs dir
+    os.makedirs("logs", exist_ok=True)
+    # Config thr logging
+    logging.basicConfig(
+        filename="logs/profe_pre.log",
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s: %(message)s",
+    )
+
+    logger = logging.getLogger(__name__)
+
+    logger.info("Running PROFE-prepocess")
     org: FitsProcessor = FitsProcessor()
     org.update_jd_headers()
     org.organize_files()

@@ -1,6 +1,6 @@
 [project]
 name = "profe"
-version = "0.1.1"
+version = "0.1.2"
 description = "Reduction Pipeline for OPTICAM Photometry of Exoplanets (PROFE in spanish)"
 authors = [
     {name = "S. Paez",email = "spaez@astro.unam.mx"},
@@ -48,5 +48,5 @@ sphinx-rtd-theme = "^3.0.2"
 
 [project.scripts]
 profe_pre = "profe.preprocess.cli:main"
-profe_cal = "profe.calibrate.cli:main"
+# profe_cal = "profe.calibrate.cli:main"
 profe_out = "profe.output.cli:main"

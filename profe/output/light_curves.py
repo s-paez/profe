@@ -140,6 +140,48 @@ class LightCurvePlotter:
         """
         return [f for f in folder.glob("*.tbl")]
 
+    def _calculate_rms(
+        self,
+        flux: Series,
+        times: Optional[DataFrame],
+        t: Series,
+    ) -> tuple[float, str]:
+        """
+        Calculate RMS of the flux, optionally within specific time intervals.
+
+        Args:
+            flux (Series): Normalized flux values.
+            times (Optional[DataFrame]): DataFrame containing time intervals.
+            t (Series): Time values corresponding to the flux.
+
+        Returns:
+            tuple[float, str]: Calculated RMS value and formatted string for plot label.
+        """
+        diff: Series
+        if times is None:
+            median_val = flux.median()
+            diff = flux - median_val
+            rms = np.sqrt(np.mean(diff**2))
+            rms_txt = f" (RMS:{rms:.4f})"
+        else:
+            mask: Any = np.zeros(len(flux), dtype=bool)
+            for i, f in zip(times["init_time"], times["final_time"]):
+                mask |= (t >= i) & (t <= f)
+            sel = flux[mask]
+            
+            if len(sel):
+                median_val = sel.median()
+                diff = sel - median_val
+                rms = np.sqrt(np.mean(diff**2))
+                rms_txt = f" (RMS:{rms:.4f})"
+            else:
+                # Fallback to full data if mask is empty
+                median_val = flux.median()
+                diff = flux - median_val
+                rms = np.sqrt(np.mean(diff**2))
+                rms_txt = f" (RMS:{rms:.4f})"
+        return rms, rms_txt
+
     def _save_method_csv(self, date_folder: Path, method: str, filt_dict: Dict) -> None:
         """
         Save a normalized multiband light curve CSV for a processing method.
@@ -214,26 +256,9 @@ class LightCurvePlotter:
             diff: Series
 
             if times is None:
-                median_val = flux.median()
-                diff = flux - median_val
-                rms = np.sqrt(np.mean(diff**2))
-                rms_txt = f" (RMS:{rms:.4f})"
+                rms, rms_txt = self._calculate_rms(flux, None, t)
             else:
-                mask: Any = np.zeros(len(df), dtype=bool)
-                for i, f in zip(times["init_time"], times["final_time"]):
-                    mask |= (t >= i) & (t <= f)
-                sel = flux[mask]
-                if len(sel):
-                    median_val = sel.median()
-                    diff = sel - median_val
-                    rms = np.sqrt(np.mean(diff**2))
-                    rms_txt = f" (RMS:{rms:.4f})"
-                # If `times.csv` exists but with no data it will still use all data
-                else:
-                    median_val = flux.median()
-                    diff = flux - median_val
-                    rms = np.sqrt(np.mean(diff**2))
-                    rms_txt = f" (RMS:{rms:.4f})"
+                rms, rms_txt = self._calculate_rms(flux, times, t)
 
             # All datapoints
             ax.errorbar(
