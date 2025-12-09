@@ -40,7 +40,7 @@ class FitsProcessor:
 
     """
 
-    def __init__(self) -> None:
+    def __init__(self, n_processes: int | None = None) -> None:
         """
         Initialize directory paths and load the set of already processed files.
 
@@ -53,6 +53,7 @@ class FitsProcessor:
             counts_file (str): Path to the summary file with image counts.
             extensions (tuple[str, ...]): Accepted FITS file extensions.
             processed (set[str]): Filenames of already processed files.
+            n_processes (int): Number of processes to use.
         """
         self.base_dir = os.getcwd()
         self.data_dir = os.path.join(self.base_dir, "data")
@@ -62,6 +63,11 @@ class FitsProcessor:
         self.processed_list_path = os.path.join(self.logs, ".organized_files.dat")
         self.counts_file = os.path.join(self.logs, "images_summary.dat")
         self.extensions = (".fit", ".fits", ".FIT", ".FITS")
+        
+        if n_processes is None:
+            self.n_processes = cpu_count()
+        else:
+            self.n_processes = n_processes
 
         os.makedirs(self.output_dir, exist_ok=True)
         logger.info("Starting to Organize and update time")
@@ -167,10 +173,10 @@ class FitsProcessor:
             logger.error("No FITS files found for JD updating")
             return
 
-        msg: str = f"{len(file_list)} FITS files. Updating with {cpu_count()} cores"
+        msg: str = f"{len(file_list)} FITS files. Updating with {self.n_processes} cores"
         logger.info(msg)
 
-        with Pool(processes=cpu_count()) as pool:
+        with Pool(processes=self.n_processes) as pool:
             for _ in tqdm(
                 pool.imap_unordered(self._add_jd_to_files, file_list),
                 total=len(file_list),

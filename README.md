@@ -64,6 +64,13 @@ Organize raw data from `data/` directory into the `organized_data/` directory, u
 ```bash
 profe_pre
 ```
+
+By default, `profe_pre` uses all available CPU cores. You can limit the number of cores using the `--cores` (or `-n`) flag:
+
+```bash
+# Use only 4 cores
+profe_pre --cores 4
+```
 ### AstroImageJ
 Once the data have been preprocessed with `profe`, it is time to perform data reduction and photometry with AstroImageJ and save the measurements tables in `.tbl` format.
 

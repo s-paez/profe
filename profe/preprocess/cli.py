@@ -16,6 +16,9 @@ from .median_filter import MedianFilter
 
 
 
+import argparse
+import sys
+
 def main() -> None:
     """
     Executes the preprocessing pipeline.
@@ -33,6 +36,22 @@ def main() -> None:
     6. Apply the median filter with a 3x3-pixel window size.
 
     """
+    parser = argparse.ArgumentParser(description="PROFE Preprocessing Pipeline")
+    parser.add_argument(
+        "--cores", "-n",
+        type=int,
+        default=None,
+        help="Number of CPU cores to use. Defaults to all available.",
+    )
+    args = parser.parse_args()
+
+    # Prevent thread oversubscription by numpy/scipy in workers
+    os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"
+    os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+    os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
     # Make the logs dir
     os.makedirs("logs", exist_ok=True)
     # Config thr logging
@@ -44,11 +63,12 @@ def main() -> None:
 
     logger = logging.getLogger(__name__)
 
-    logger.info("Running PROFE-prepocess")
-    org: FitsProcessor = FitsProcessor()
+    logger.info(f"Running PROFE-prepocess with {args.cores if args.cores else 'all'} cores")
+    
+    org: FitsProcessor = FitsProcessor(n_processes=args.cores)
     org.update_jd_headers()
     org.organize_files()
     org.generate_counts()
 
-    mf: MedianFilter = MedianFilter()
+    mf: MedianFilter = MedianFilter(n_processes=args.processes if hasattr(args, 'processes') else args.cores)
     mf.apply_filter()

@@ -29,7 +29,7 @@ class MedianFilter:
     science images.
     """
 
-    def __init__(self, ws: int = 3) -> None:
+    def __init__(self, ws: int = 3, n_processes: int | None = None) -> None:
         """
         Initialize the median filter with directory paths and filter settings.
 
@@ -46,6 +46,7 @@ class MedianFilter:
             logs (str): Directory for log and control files.
             processed_list_path (str): Path to the hidden file that tracks which
             FITS files have already been median-filtered.
+            n_processes (int): Number of processes to use.
         """
         self.base_dir = os.getcwd()
         self.data_dir = os.path.join(self.base_dir, "organized_data")
@@ -55,6 +56,12 @@ class MedianFilter:
         self.processed_list_path = os.path.join(
             self.logs, f".corrected_files_{ws}x{ws}.dat"
         )
+        
+        if n_processes is None:
+            self.n_processes = cpu_count()
+        else:
+            self.n_processes = n_processes
+
         logger.info("Starting to apply median filter")
 
     def _process_image(self, args: list) -> Any | None:
@@ -135,7 +142,7 @@ class MedianFilter:
                     output_path: str = os.path.join(output_folder, filename)
                     args.append((image_path, output_path, self.window_size))
 
-        with Pool(processes=cpu_count()) as pool:
+        with Pool(processes=self.n_processes) as pool:
             imap: IMapIterator = pool.imap_unordered(self._process_image, args)
             results: list = [
                 r
