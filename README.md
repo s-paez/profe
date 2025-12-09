@@ -57,6 +57,17 @@ pip install .[dev]
 
 ## Usage
 
+
+### Profiling
+To analyze the performance of the preprocessing pipeline, you can use `pyinstrument` (installed with dev dependencies):
+
+```bash
+# Profile the script and output an interactive HTML report
+poetry run pyinstrument -m profe.preprocess.cli --cores 4
+```
+
+This will generate a detailed report showing execution time for each function call.
+
 ### Preprocessing
 
 Organize raw data from `data/` directory into the `organized_data/` directory, update time headers, perform median filter correction:

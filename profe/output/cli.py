@@ -66,3 +66,7 @@ def main() -> None:
 
     exofop_plotter: ExofopPlotter = ExofopPlotter()
     exofop_plotter.run()
+
+
+if __name__ == "__main__":
+    main()

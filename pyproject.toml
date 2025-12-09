@@ -48,6 +48,7 @@ bandit = "^1.8.6"
 pyrefly = "^0.24.2"
 sphinx = "^8.2.3"
 sphinx-rtd-theme = "^3.0.2"
+pyinstrument = "^5.1.1"
 
 [project.scripts]
 profe_pre = "profe.preprocess.cli:main"

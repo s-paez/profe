@@ -69,7 +69,11 @@ def main() -> None:
     org.organize_files()
     org.generate_counts()
 
-    mf: MedianFilter = MedianFilter(
+    mf = MedianFilter(
         n_processes=args.processes if hasattr(args, "processes") else args.cores
     )
     mf.apply_filter()
+
+
+if __name__ == "__main__":
+    main()
