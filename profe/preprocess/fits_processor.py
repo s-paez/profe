@@ -27,7 +27,8 @@ class FitsProcessor:
     This class provides methods to:
 
         1. Time updating:
-            - Compute and insert the 'JD' and 'UTMIDDLE' based on existing 'UT' and 'EXPOSURE' header values.
+            - Compute and insert the 'JD' and 'UTMIDDLE' based on existing 'UT' and
+            'EXPOSURE' header values.
 
         2. File organization:
             - Sort FITS files into subdirectories by 'OBJECT' and 'DATE-OBS' keywords.
@@ -63,7 +64,7 @@ class FitsProcessor:
         self.processed_list_path = os.path.join(self.logs, ".organized_files.dat")
         self.counts_file = os.path.join(self.logs, "images_summary.dat")
         self.extensions = (".fit", ".fits", ".FIT", ".FITS")
-        
+
         if n_processes is None:
             self.n_processes = cpu_count()
         else:
@@ -173,7 +174,9 @@ class FitsProcessor:
             logger.error("No FITS files found for JD updating")
             return
 
-        msg: str = f"{len(file_list)} FITS files. Updating with {self.n_processes} cores"
+        msg: str = (
+            f"{len(file_list)} FITS files. Updating with {self.n_processes} cores"
+        )
         logger.info(msg)
 
         with Pool(processes=self.n_processes) as pool:
@@ -194,7 +197,8 @@ class FitsProcessor:
             3. For each new file:
                 a. Read 'OBJECT' and 'DATE-OBS' (fallback to 'IMGTYPE' if no 'OBJECT' ).
                 b. Create `OBJECT/DATE` directory in `output_dir`.
-                c. For non-calibration FITS, create `measurements/DATE`, `lcs/DATE`, and `exofop` subdirectories.
+                c. For non-calibration FITS, create `measurements/DATE`, `lcs/DATE`, and
+                 `exofop` subdirectories.
                 d. Move the file to the target directory.
                 e. Record it as processed.
 

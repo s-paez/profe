@@ -106,7 +106,7 @@ We welcome contributions to improve **PROFE**! Please follow these steps to ensu
 5. **Commit and push** your changes to your fork
 6. **Open a Pull Request** from your fork to the main repository. In your PR description:
     - Explain the what and why of the change
-    - Reference related issues 
+    - Reference related issues
 
 ---
 ## License

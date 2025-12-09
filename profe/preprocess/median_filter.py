@@ -56,7 +56,7 @@ class MedianFilter:
         self.processed_list_path = os.path.join(
             self.logs, f".corrected_files_{ws}x{ws}.dat"
         )
-        
+
         if n_processes is None:
             self.n_processes = cpu_count()
         else:
@@ -112,8 +112,11 @@ class MedianFilter:
             1. Load the list of already processed files from `processed_list_path`.
             2. Walk through `data_dir` to find FITS files matching `extensions`.
             3. Skip files already processed.
-            4. For each new file, construct the output path under `corrected_{window_size}x{window_size}`, preserving the subdirectory structure.
-            5. Use multiprocessing with all available CPU cores to run `_process_image` in parallel, showing progress with `tqdm`.
+            4. For each new file, construct the output path under
+            `corrected_{window_size}x{window_size}`, preserving the subdirectory
+            structure.
+            5. Use multiprocessing with all available CPU cores to run `_process_image`
+            in parallel, showing progress with `tqdm`.
             6. Append successfully processed file paths to `processed_list_path`.
             7. Log a summary of the operation.
         """

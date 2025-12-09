@@ -6,6 +6,7 @@ This module also sets the log file.
 The logical order of execution is required.
 """
 
+import argparse
 import logging
 import os
 
@@ -13,11 +14,6 @@ import os
 from .fits_processor import FitsProcessor
 from .median_filter import MedianFilter
 
-
-
-
-import argparse
-import sys
 
 def main() -> None:
     """
@@ -38,7 +34,8 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser(description="PROFE Preprocessing Pipeline")
     parser.add_argument(
-        "--cores", "-n",
+        "--cores",
+        "-n",
         type=int,
         default=None,
         help="Number of CPU cores to use. Defaults to all available.",
@@ -63,12 +60,16 @@ def main() -> None:
 
     logger = logging.getLogger(__name__)
 
-    logger.info(f"Running PROFE-prepocess with {args.cores if args.cores else 'all'} cores")
-    
+    logger.info(
+        f"Running PROFE-prepocess with {args.cores if args.cores else 'all'} cores"
+    )
+
     org: FitsProcessor = FitsProcessor(n_processes=args.cores)
     org.update_jd_headers()
     org.organize_files()
     org.generate_counts()
 
-    mf: MedianFilter = MedianFilter(n_processes=args.processes if hasattr(args, 'processes') else args.cores)
+    mf: MedianFilter = MedianFilter(
+        n_processes=args.processes if hasattr(args, "processes") else args.cores
+    )
     mf.apply_filter()

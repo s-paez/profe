@@ -168,7 +168,7 @@ class LightCurvePlotter:
             for i, f in zip(times["init_time"], times["final_time"]):
                 mask |= (t >= i) & (t <= f)
             sel = flux[mask]
-            
+
             if len(sel):
                 median_val = sel.median()
                 diff = sel - median_val
@@ -252,8 +252,8 @@ class LightCurvePlotter:
             err: Series = df["rel_flux_err_T1"] / df["rel_flux_T1"].median()
             rms: float
             rms_txt: str
-            median_val: float
-            diff: Series
+            # median_val: float
+            # diff: Series
 
             if times is None:
                 rms, rms_txt = self._calculate_rms(flux, None, t)
