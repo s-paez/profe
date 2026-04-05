@@ -17,7 +17,7 @@ repos:
         language: system
         types: [python]
       - id: cheack-merge-conflict
-        name: PROFE checking merger conclicks..
+        name: PROFE checking merger conflicts..
         entry: check-merge-conflict
         language: system
         types: [python]
@@ -27,28 +27,16 @@ repos:
         language: system
         files: ^tests/
         types: [python]
-        args: ['--djandgo']
-      - id: flake8
-        name: PROFE Check Python standard styles with Flake8
-        entry: flake8
-        language: python
-        types: [python]
-        additional_dependencies: [
-         flake8-isort,
-         flake8-docstrings,
-         flake8-print,
-         flake8-typing-imports,
-        ]
-        args: [--max-line-length=88, '--ignore=D400, D401, E203, I003, W503, I004, LIT003, LIT102, TYP001']
+        args: ["--pytest-test-first"]
       - id: ruff
-        name: PROFE File reformatting with Ruff
+        name: PROFE Linter (Ruff)
         entry: ruff check
         language: system
         types: [python]
         args: ['--fix', '--exit-non-zero-on-fix']
-      - id: black
-        name: PROFE Files reformatting with Black
-        entry: black
+      - id: ruff-format
+        name: PROFE Formatter (Ruff Format)
+        entry: ruff format
         language: system
         types: [python]
       - id: bandit
@@ -56,7 +44,7 @@ repos:
         entry: bandit
         language: system
         types: [python]
-        args: ["-c", "pyproject.toml", "--skip", "B311"]
+        args: ["-c", "pyproject.toml", "--skip", "B101,B311"]
       - id: mypy
         name: PROFE Check typing with MyPy
         entry: mypy
@@ -65,16 +53,3 @@ repos:
         args: [--disallow-untyped-defs, --disallow-incomplete-defs, --config-file, ./pyproject.toml, --ignore-missing-imports]
         exclude: '.*__init__\.py'
         files: '\.py'
-      - id: isort
-        name: PROFE Check imports order with Isort
-        entry: isort
-        language: python
-        types: [python]
-        additional_dependencies: [toml]
-      - id: pyrefly-typecheck
-        name: PROFE Chech typping with Pyrefly
-        entry: pyrefly check
-        language: system
-        pass_filenames: false
-        args: []
-        require_serial: true
