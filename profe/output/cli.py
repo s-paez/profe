@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 logger.info("Running PROFE-outputs")
 
 
-def main() -> None:
+def run_output() -> None:
     """
     Run all PROFE output modules sequentially.
 
@@ -69,4 +69,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run_output()
