@@ -183,7 +183,7 @@ class FitsProcessor:
             for _ in tqdm(
                 pool.imap_unordered(self._add_jd_to_files, file_list),
                 total=len(file_list),
-                desc="Upating headers",
+                desc="Updating headers",
             ):
                 pass
 
