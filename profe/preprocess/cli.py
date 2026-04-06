@@ -6,7 +6,6 @@ This module also sets the log file.
 The logical order of execution is required.
 """
 
-import argparse
 import logging
 import os
 
@@ -15,7 +14,7 @@ from .fits_processor import FitsProcessor
 from .median_filter import MedianFilter
 
 
-def run_preprocess(cores: int = None) -> None:
+def run_preprocess(cores: int | None = None) -> None:
     """
     Executes the preprocessing pipeline.
 
@@ -50,18 +49,14 @@ def run_preprocess(cores: int = None) -> None:
 
     logger = logging.getLogger(__name__)
 
-    logger.info(
-        f"Running PROFE-prepocess with {cores if cores else 'all'} cores"
-    )
+    logger.info(f"Running PROFE-prepocess with {cores if cores else 'all'} cores")
 
     org: FitsProcessor = FitsProcessor(n_processes=cores)
     org.update_jd_headers()
     org.organize_files()
     org.generate_counts()
 
-    mf = MedianFilter(
-        n_processes=cores
-    )
+    mf = MedianFilter(n_processes=cores)
     mf.apply_filter()
 
 
