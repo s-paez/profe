@@ -45,9 +45,8 @@ pyinstrument = "^5.1.1"
 pytest = "^9.0.2"
 
 [project.scripts]
-profe_pre = "profe.preprocess.cli:main"
+profe = "profe.cli:main"
 # profe_cal = "profe.calibrate.cli:main"
-profe_out = "profe.output.cli:main"
 
 [tool.mypy]
 explicit_package_bases = true

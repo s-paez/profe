@@ -7,12 +7,12 @@ A Python-based pipeline to automate preprocessing and postprocessing of data acq
 
 ## Features
 
-* **Preprocessing** (`profe_pre`):
+* **Preprocessing** (`profe -p`):
 
   * Organize and standardize FITS files.
   * Update headers and compute Julian Date.
   * Apply median filter
-* **Postprocessing** (`profe_out`):
+* **Postprocessing** (`profe -o`):
 
   * Plot of altitude-azimuth trajectory and centroids and movement in pixels .
   * Generate binned light curves with RMS measurements.
@@ -57,13 +57,18 @@ pip install .[dev]
 
 ## Usage
 
+To see the complete detailed manual and arguments at any time, run:
+
+```bash
+profe man
+```
 
 ### Profiling
-To analyze the performance of the preprocessing pipeline, you can use `pyinstrument` (installed with dev dependencies):
+To analyze the performance of the pipeline, you can use `pyinstrument` (installed with dev dependencies):
 
 ```bash
 # Profile the script and output an interactive HTML report
-poetry run pyinstrument -m profe.preprocess.cli --cores 4
+poetry run pyinstrument -m profe.cli -p -c 4
 ```
 
 This will generate a detailed report showing execution time for each function call.
@@ -73,14 +78,14 @@ This will generate a detailed report showing execution time for each function ca
 Organize raw data from `data/` directory into the `organized_data/` directory, update time headers, perform median filter correction:
 
 ```bash
-profe_pre
+profe -p
 ```
 
-By default, `profe_pre` uses all available CPU cores. You can limit the number of cores using the `--cores` (or `-n`) flag:
+By default, the preprocessing uses all available CPU cores. You can limit the number of cores using the `-c` (or `--cores`) flag:
 
 ```bash
 # Use only 4 cores
-profe_pre --cores 4
+profe -p -c 4
 ```
 ### AstroImageJ
 Once the data have been preprocessed with `profe`, it is time to perform data reduction and photometry with AstroImageJ and save the measurements tables in `.tbl` format.
@@ -90,7 +95,7 @@ Once the data have been preprocessed with `profe`, it is time to perform data re
 Generate light curves (plots and files), centroid movement plots, Alt-Az trajectory, Field of View apertures, radial profile and time-averaging curves for `measurements.tbl` files:
 
 ```bash
-profe_out
+profe -o
 ```
 
 ---
