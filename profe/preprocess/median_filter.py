@@ -1,7 +1,7 @@
 """
 Apply a 3x3-pixel median filter to raw science images.
 
-As proposed by Paez et al. (2025), OPTICAM science images with exposure times
+As proposed by Paez et al. (2026), OPTICAM science images with exposure times
 longer than 10 seconds require hot-pixel correction. This module implements
 that correction using a median filter with a 3x3-pixel window.
 """
@@ -93,6 +93,10 @@ class MedianFilter:
                 # Sciypy median filter
                 corrected_data = median_filter(data, size=window_size, mode="reflect")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+                header.add_history(
+                    f"{window_size}x{window_size} median filter applied by PROFE"
+                )
 
                 hdu: fits.PrimaryHDU = fits.PrimaryHDU(
                     data=corrected_data, header=header
