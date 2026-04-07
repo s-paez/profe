@@ -94,6 +94,10 @@ class MedianFilter:
                 corrected_data = median_filter(data, size=window_size, mode="reflect")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
+                header.add_history(
+                    f"{window_size}x{window_size} median filter applied by PROFE"
+                )
+
                 hdu: fits.PrimaryHDU = fits.PrimaryHDU(
                     data=corrected_data, header=header
                 )
