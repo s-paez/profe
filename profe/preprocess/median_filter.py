@@ -1,7 +1,7 @@
 """
 Apply a 3x3-pixel median filter to raw science images.
 
-As proposed by Paez et al. (2025), OPTICAM science images with exposure times
+As proposed by Paez et al. (2026), OPTICAM science images with exposure times
 longer than 10 seconds require hot-pixel correction. This module implements
 that correction using a median filter with a 3x3-pixel window.
 """
