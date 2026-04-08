@@ -108,8 +108,19 @@ class FitsProcessor:
             with fits.open(file, mode="update") as image:
                 header = image[0].header  # type: ignore[attr-defined]
 
-                if "JD" in header and "UTMIDDLE" in header:
-                    logger.info(f"{file}: JD and UTMIDDLE already present. Skipping...")
+                already_updated = False
+                history_msg = "PROFE added JD to mid of obs and UTMIDDLE"
+
+                if "HISTORY" in header:
+                    for hist in header["HISTORY"]:
+                        if history_msg in str(hist):
+                            already_updated = True
+                            break
+
+                if already_updated:
+                    logger.info(
+                        f"{file}: JD and UTMIDDLE already updated by PROFE. Skipping..."
+                    )
                     return
 
                 if "UT" not in header or "EXPOSURE" not in header:
