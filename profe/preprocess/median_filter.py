@@ -44,8 +44,6 @@ class MedianFilter:
             window_size (int): Dimension of the median filter window.
             extensions (tuple[str, ...]): Accepted FITS file extensions.
             logs (str): Directory for log and control files.
-            processed_list_path (str): Path to the hidden file that tracks which
-            FITS files have already been median-filtered.
             n_processes (int): Number of processes to use.
         """
         self.base_dir = os.getcwd()
@@ -53,9 +51,6 @@ class MedianFilter:
         self.window_size = ws
         self.extensions = (".fit", ".fits", ".FIT", ".FITS")
         self.logs = os.path.join(self.base_dir, "logs")
-        self.processed_list_path = os.path.join(
-            self.logs, f".corrected_files_{ws}x{ws}.dat"
-        )
 
         if n_processes is None:
             self.n_processes = cpu_count()
@@ -86,23 +81,45 @@ class MedianFilter:
         image_path, output_path, window_size = args
 
         try:
-            with fits.open(image_path) as hdul:
-                data = hdul[0].data  # type: ignore[attr-defined]
+            already_filtered = False
+            raw_history_msg = (
+                f"PROFE: raw image, {window_size}x{window_size} median copy exists"
+            )
+
+            with fits.open(image_path, mode="update") as hdul:
                 header = hdul[0].header  # type: ignore[attr-defined]
+
+                # Verify if history exists
+                if "HISTORY" in header:
+                    for hist in header["HISTORY"]:
+                        if raw_history_msg in str(hist):
+                            already_filtered = True
+                            break
+
+                if already_filtered:
+                    logger.info(f"{image_path}: Already filtered. Skipping...")
+                    return image_path
+
+                data = hdul[0].data  # type: ignore[attr-defined]
 
                 # Sciypy median filter
                 corrected_data = median_filter(data, size=window_size, mode="reflect")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-                header.add_history(
+                filtered_header = header.copy()
+                filtered_header.add_history(
                     f"{window_size}x{window_size} median filter applied by PROFE"
                 )
 
                 hdu: fits.PrimaryHDU = fits.PrimaryHDU(
-                    data=corrected_data, header=header
+                    data=corrected_data, header=filtered_header
                 )
                 hdu.writeto(output_path, overwrite=True)
-                logger.info(f"{image_path}: Corredted with median filter")
+
+                # Add history to the raw image (opened in mode='update')
+                header.add_history(raw_history_msg)
+
+                logger.info(f"{image_path}: Corrected with median filter")
             return image_path
         except Exception as e:
             logger.warning(f"{image_path} skipped due to {e}")
@@ -113,38 +130,35 @@ class MedianFilter:
         Apply the median filter to all unprocessed FITS files in parallel.
 
         Steps:
-            1. Load the list of already processed files from `processed_list_path`.
-            2. Walk through `data_dir` to find FITS files matching `extensions`.
-            3. Skip files already processed.
-            4. For each new file, construct the output path under
+            1. Walk through `data_dir` to find FITS files matching `extensions`.
+            2. For each file, construct the output path under
             `corrected_{window_size}x{window_size}`, preserving the subdirectory
             structure.
-            5. Use multiprocessing with all available CPU cores to run `_process_image`
+            3. Use multiprocessing with all available CPU cores to run `_process_image`
             in parallel, showing progress with `tqdm`.
-            6. Append successfully processed file paths to `processed_list_path`.
-            7. Log a summary of the operation.
+            4. Log a summary of the operation.
         """
-        processed_files: set
-        if os.path.exists(self.processed_list_path):
-            with open(self.processed_list_path, "r") as f:
-                processed_files = set(line.strip() for line in f)
-        else:
-            processed_files = set()
-
         args: list = []
 
         for dirpath, _, filenames in os.walk(self.data_dir):
+            parts = os.path.relpath(dirpath, self.data_dir).split(os.sep)
+            if len(parts) < 3 or parts[1] != "raw":
+                continue
+
             for filename in filenames:
+                if filename.startswith("._") or filename.startswith("."):
+                    continue
                 if filename.endswith(self.extensions):
                     image_path: str = os.path.join(dirpath, filename)
-                    if image_path in processed_files:
-                        continue
 
-                    relative_path: str = os.path.relpath(dirpath, self.data_dir)
+                    target = parts[0]
+                    date_sub_path = os.path.join(*parts[2:])
+
                     output_folder: str = os.path.join(
-                        self.base_dir,
-                        "corrected_" + f"{self.window_size}x{self.window_size}",
-                        relative_path,
+                        self.data_dir,
+                        target,
+                        f"corrected_{self.window_size}x{self.window_size}",
+                        date_sub_path,
                     )
                     output_path: str = os.path.join(output_folder, filename)
                     args.append((image_path, output_path, self.window_size))
@@ -161,10 +175,5 @@ class MedianFilter:
                 if r is not None
             ]
 
-        with open(self.processed_list_path, "a") as f:
-            for file_path in results:
-                if file_path is not None:
-                    f.write(file_path + "\n")
-
-        msg: str = f"{len(results)} processed files. List: {self.processed_list_path}"
+        msg: str = f"{len(results)} files processed."
         logger.info(msg)
