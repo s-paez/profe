@@ -217,7 +217,7 @@ class FitsProcessor:
                     date_obs = header.get("DATE-OBS", "")
 
                 date_folder = date_obs
-                target_dir: str = os.path.join(self.output_dir, obj, date_folder)
+                target_dir: str = os.path.join(self.output_dir, obj, "raw", date_folder)
                 target_file_path = os.path.join(target_dir, os.path.basename(fits_file))
 
                 if os.path.exists(target_file_path):
@@ -270,11 +270,12 @@ class FitsProcessor:
             for obj_name in sorted(os.listdir(self.output_dir)):
                 obj_dir: str = os.path.join(self.output_dir, obj_name)
 
-                if not os.path.isdir(obj_dir):
+                raw_dir: str = os.path.join(obj_dir, "raw")
+                if not os.path.isdir(raw_dir):
                     continue
 
-                for date_folder in sorted(os.listdir(obj_dir)):
-                    date_dir: str = os.path.join(obj_dir, date_folder)
+                for date_folder in sorted(os.listdir(raw_dir)):
+                    date_dir: str = os.path.join(raw_dir, date_folder)
 
                     if not os.path.isdir(date_dir):
                         continue
