@@ -50,10 +50,8 @@ class FitsProcessor:
             data_dir (str): Directory containing raw FITS files.
             output_dir (str): Directory for saving organized files.
             logs (str): Directory for log files, summaries, and processed file records.
-            processed_list_path (str): Path to the file recording processed files.
             counts_file (str): Path to the summary file with image counts.
             extensions (tuple[str, ...]): Accepted FITS file extensions.
-            processed (set[str]): Filenames of already processed files.
             n_processes (int): Number of processes to use.
         """
         self.base_dir = os.getcwd()
@@ -61,7 +59,6 @@ class FitsProcessor:
         self.output_dir = os.path.join(self.base_dir, "organized_data")
         self.logs = os.path.join(self.base_dir, "logs")
 
-        self.processed_list_path = os.path.join(self.logs, ".organized_files.dat")
         self.counts_file = os.path.join(self.logs, "images_summary.dat")
         self.extensions = (".fit", ".fits", ".FIT", ".FITS")
 
@@ -72,24 +69,6 @@ class FitsProcessor:
 
         os.makedirs(self.output_dir, exist_ok=True)
         logger.info("Starting to Organize and update time")
-
-        self.processed = self._load_processed_files()
-
-    def _load_processed_files(self) -> set:
-        """
-        Load the set of filenames for already processed FITS files.
-
-        Reads `self.processed_list_path` if it exists, stripping whitespace from each
-        line and returning the result as a set. Returns an empty set if the file does
-        not exist.
-
-        Returns:
-            set[str]: Filenames of processed FITS files.
-        """
-        if os.path.exists(self.processed_list_path):
-            with open(self.processed_list_path, "r") as pf:
-                return set(line.strip() for line in pf if line.strip())
-        return set()
 
     def _gather_fits_files(self) -> list:
         """
@@ -128,6 +107,10 @@ class FitsProcessor:
         try:
             with fits.open(file, mode="update") as image:
                 header = image[0].header  # type: ignore[attr-defined]
+
+                if "JD" in header and "UTMIDDLE" in header:
+                    logger.info(f"{file}: JD and UTMIDDLE already present. Skipping...")
+                    return
 
                 if "UT" not in header or "EXPOSURE" not in header:
                     logger.warning(f"{file}: Missing UT or EXPOSURE in header")
@@ -209,9 +192,6 @@ class FitsProcessor:
         new_count = 0
 
         for fits_file in file_list:
-            if fits_file in self.processed:
-                continue
-
             try:
                 with fits.open(fits_file, mode="readonly") as hdul:
                     header = hdul[0].header  # type: ignore[attr-defined]
@@ -224,8 +204,14 @@ class FitsProcessor:
                     date_obs = header.get("DATE-OBS", "")
 
                 date_folder = date_obs
-
                 target_dir: str = os.path.join(self.output_dir, obj, date_folder)
+                target_file_path = os.path.join(target_dir, os.path.basename(fits_file))
+
+                if os.path.exists(target_file_path):
+                    logger.info(
+                        f"{fits_file} is already organized in {target_dir}. Skipping..."
+                    )
+                    continue
 
                 calibration_frames: set = {"flat", "flats", "dark", "darks"}
 
@@ -247,10 +233,6 @@ class FitsProcessor:
                 shutil.move(fits_file, target_dir)
                 logger.info(f"Moved {fits_file} --> {target_dir}")
 
-                with open(self.processed_list_path, "a") as pf:
-                    pf.write(fits_file + "\n")
-
-                self.processed.add(fits_file)
                 new_count += 1
 
             except Exception as e:
