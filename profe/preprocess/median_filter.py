@@ -142,6 +142,8 @@ class MedianFilter:
 
         for dirpath, _, filenames in os.walk(self.data_dir):
             for filename in filenames:
+                if filename.startswith("._") or filename.startswith("."):
+                    continue
                 if filename.endswith(self.extensions):
                     image_path: str = os.path.join(dirpath, filename)
 

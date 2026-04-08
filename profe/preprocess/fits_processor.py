@@ -83,6 +83,8 @@ class FitsProcessor:
         file_list: list = []
         for root, _, files in os.walk(self.data_dir):
             for name in files:
+                if name.startswith("._") or name.startswith("."):
+                    continue
                 if name.endswith(self.extensions):
                     file_list.append(os.path.join(root, name))
         return file_list
