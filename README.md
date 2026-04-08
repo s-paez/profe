@@ -64,14 +64,18 @@ profe man
 ```
 
 ### Profiling
-To analyze the performance of the pipeline, you can use `pyinstrument` (installed with dev dependencies):
+To analyze the performance of the pipeline, you must have the development dependencies installed. Additionally, if you are testing this over a specific data directory, it is recommended to activate the virtual environment so the commands work globally:
 
 ```bash
-# Profile the script and output an interactive HTML report
-poetry run pyinstrument -m profe.cli -p -c 4
+# 1. Activate the poetry environment shell
+poetry shell
+
+# 2. Navigate to your working directory (e.g. where your data/ is) and run the profiler
+# We use the `--html` flag to successfully export the interactive report
+pyinstrument --html -o profe_profile.html -m profe.cli -p -c 4
 ```
 
-This will generate a detailed report showing execution time for each function call.
+This will generate a detailed interactive `profe_profile.html` report showing execution time for each function call.
 
 ### Preprocessing
 
