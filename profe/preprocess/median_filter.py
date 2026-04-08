@@ -141,17 +141,24 @@ class MedianFilter:
         args: list = []
 
         for dirpath, _, filenames in os.walk(self.data_dir):
+            parts = os.path.relpath(dirpath, self.data_dir).split(os.sep)
+            if len(parts) < 3 or parts[1] != "raw":
+                continue
+
             for filename in filenames:
                 if filename.startswith("._") or filename.startswith("."):
                     continue
                 if filename.endswith(self.extensions):
                     image_path: str = os.path.join(dirpath, filename)
 
-                    relative_path: str = os.path.relpath(dirpath, self.data_dir)
+                    target = parts[0]
+                    date_sub_path = os.path.join(*parts[2:])
+
                     output_folder: str = os.path.join(
-                        self.base_dir,
-                        "corrected_" + f"{self.window_size}x{self.window_size}",
-                        relative_path,
+                        self.data_dir,
+                        target,
+                        f"corrected_{self.window_size}x{self.window_size}",
+                        date_sub_path,
                     )
                     output_path: str = os.path.join(output_folder, filename)
                     args.append((image_path, output_path, self.window_size))
