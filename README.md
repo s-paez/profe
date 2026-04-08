@@ -79,7 +79,9 @@ This will generate a detailed interactive `profe_profile.html` report showing ex
 
 ### Preprocessing
 
-Organize raw data from `data/` directory into the `organized_data/` directory, update time headers, perform median filter correction:
+**PROFE** requires your original FITS files to be placed inside a `data/` directory relative to where you run the command. The pipeline will read the files from there, organize them, update their FITS headers, and apply the median filter correction.
+
+To execute the preprocessing:
 
 ```bash
 profe -p
@@ -90,6 +92,21 @@ By default, the preprocessing uses all available CPU cores. You can limit the nu
 ```bash
 # Use only 4 cores
 profe -p -c 4
+```
+
+#### Output Directory Structure
+After a successful preprocessing run, your pipeline translates the `data/` contents into a highly structured `organized_data/` hierarchy, mapping each FITS to its extracted `{TARGET}` and observation `{DATE}`:
+
+```text
+organized_data/
+└── {TARGET}/
+    ├── raw/
+    │   └── {DATE}/         <-- Original FITS (with updated headers)
+    ├── corrected_3x3/
+    │   └── {DATE}/         <-- Copies processed with 3x3 median filter
+    ├── measurements/       <-- Data tables for postprocessing
+    ├── lcs/                <-- Generated Lightcurves
+    └── exofop/             <-- ExoFOP formatted outputs
 ```
 ### AstroImageJ
 Once the data have been preprocessed with `profe`, it is time to perform data reduction and photometry with AstroImageJ and save the measurements tables in `.tbl` format.
