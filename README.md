@@ -3,7 +3,7 @@
 
 #### Reduction pipeline for OPTICAM photometry of exoplanets.
 
-A Python-based pipeline to automate preprocessing and postprocessing of data acquired with the OPTICAM instrument on the 2.1 m telescope at OAN‑SPM, aimed at producing calibrated light curves and centroid analyses for transiting exoplanets implementing the data reduction methods proposed by Paez et. al (in prep.).
+A Python-based pipeline to automate preprocessing and postprocessing of data acquired with the OPTICAM instrument on the 2.1 m telescope at OAN‑SPM, aimed for implementing the data reduction method proposed by [Paez et. al (2026)](https://doi.org/10.1093/rasti/rzag021).
 
 ---
 
@@ -58,27 +58,6 @@ pip install .[dev]
 ---
 
 ## Usage
-
-To see the complete detailed manual and arguments at any time, run:
-
-```bash
-profe man
-```
-
-### Profiling
-To analyze the performance of the pipeline, you must have the development dependencies installed. Additionally, if you are testing this over a specific data directory, it is recommended to activate the virtual environment so the commands work globally:
-
-```bash
-# 1. Activate the poetry environment shell
-poetry shell
-
-# 2. Navigate to your working directory (e.g. where your data/ is) and run the profiler
-# We use the `--html` flag to successfully export the interactive report
-pyinstrument --html -o profe_profile.html -m profe.cli -p -c 4
-```
-
-This will generate a detailed interactive `profe_profile.html` report showing execution time for each function call.
-
 ### Preprocessing
 
 **PROFE** requires your original FITS files to be placed inside a `data/` directory relative to where you run the command. The pipeline will read the files from there, organize them, update their FITS headers, and apply the median filter correction.
@@ -121,6 +100,27 @@ Generate light curves (plots and files), centroid movement plots, Alt-Az traject
 profe -o
 ```
 
+### Manual
+
+To see the complete detailed manual and arguments at any time, run:
+
+```bash
+profe man
+```
+
+### Profiling
+To analyze the performance of the pipeline, you must have the development dependencies installed. Additionally, if you are testing this over a specific data directory, it is recommended to activate the virtual environment so the commands work globally:
+
+```bash
+# 1. Activate the poetry environment shell
+poetry shell
+
+# 2. Navigate to your working directory (e.g. where your data/ is) and run the profiler
+# We use the `--html` flag to successfully export the interactive report
+pyinstrument --html -o profe_profile.html -m profe.cli -p -c 4
+```
+
+This will generate a detailed interactive `profe_profile.html` report showing execution time for each function call.
 ---
 
 ## Development & Contribution
