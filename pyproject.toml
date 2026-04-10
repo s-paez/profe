@@ -3,9 +3,9 @@ name = "profe"
 version = "0.1.4"
 description = "Reduction Pipeline for OPTICAM Photometry of Exoplanets (PROFE in spanish)"
 authors = [
-    {name = "S. Paez",email = "spaez@astro.unam.mx"},
+    {name = "S. Páez",email = "spaez@astro.unam.mx"},
     {name = "Y. Gómez Maqueo Chew", email = "ygmc@astro.unam.mx"},
-    {name = "L. H. Hebb", email = "hebb@hws.edu"}
+    {name = "L. Hebb", email = "hebb@hws.edu"}
 ]
 license = {text = "MIT"}
 readme = "README.md"
