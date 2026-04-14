@@ -11,14 +11,14 @@ Outputs include:
     - Per-method plots and per-filter plots.
     - Normalized multiband CSV files containing flux and error columns.
 
-Processed (object, date) pairs are recorded in `logs/.lc_processed.dat` to
-avoid reprocessing.
+Already-processed (object, date) pairs are detected by checking whether the
+expected output PDF exists on disk, so no external state file is needed.
 """
 
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Optional, Set
+from typing import Dict, Optional
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -39,15 +39,14 @@ class LightCurvePlotter:
         - Computes and displays RMS values in plot legends.
         - Saves normalized multiband CSV files combining all filters.
 
-    Processed (object, date) pairs are tracked to avoid duplicate work.
+    Already-processed pairs are detected by the presence of the output PDF.
     """
 
     def __init__(self, bin_minutes: int = 10) -> None:
         """
         Initialize the light curve plotter.
 
-        Sets up working directories, logger, binning configuration, and the
-        processed-state tracking file.
+        Sets up working directories, logger, and binning configuration.
 
         Args:
             bin_minutes (int, optional): Time bin size for plots in minutes.
@@ -62,44 +61,21 @@ class LightCurvePlotter:
         self.logger = logging.getLogger(__name__)
         # argument about mins to binning
         self.bin_minutes = bin_minutes
-        # Already processed lcs
-        self.processed_file = self.logs_dir / ".lc_processed.dat"
-        if not self.processed_file.exists():
-            self.processed_file.write_text("")
 
-    def _load_processed(self) -> Set:
+    def _is_processed(self, obj_folder: Path, obj: str, date: str) -> bool:
         """
-        Load the set of processed (object, date) pairs.
-
-        Reads `logs/.lc_processed.dat` and returns its contents as a set of tuples.
-
-        Returns:
-            set[tuple[str, str]]: Processed object/date pairs.
-        """
-        text: str = self.processed_file.read_text()
-        lines: list = text.splitlines()
-        processed: set = set()  # To make an iterable object
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            parts: list = [p.strip() for p in line.split(",")]
-            if len(parts) == 2:
-                processed.add((parts[0], parts[1]))
-        return processed
-
-    def _mark_processed(self, obj: str, date: str) -> None:
-        """
-        Record a processed (object, date) pair.
-
-        Appends the pair to `logs/.lc_processed.dat`.
+        Check whether the light curve outputs already exist for (object, date).
 
         Args:
+            obj_folder (Path): Path to the object directory.
             obj (str): Target object name.
             date (str): Observation date in YYYY-MM-DD format.
+
+        Returns:
+            bool: True if the main output PDF already exists.
         """
-        with open(self.processed_file, "a") as f:
-            f.write(f"{obj},{date}\n")
+        expected = obj_folder / "plots" / date / f"{obj}_{date}_PROFE_lc.pdf"
+        return expected.exists()
 
     def _load_times(self, folder: Path) -> DataFrame | None:
         """
@@ -486,19 +462,16 @@ class LightCurvePlotter:
         """
         Process all objects and dates to generate light curve outputs.
 
-        For each unprocessed (object, date):
+        For each (object, date) whose output PDF does not yet exist:
             - Load all `.tbl` measurement files.
             - Group by processing method and filter.
             - Load optional time intervals.
             - Generate per-method and per-filter plots.
             - Save normalized multiband CSV files.
-            - Mark as processed.
 
         Returns:
             None
         """
-        processed: set = self._load_processed()
-
         for obj_folder in sorted(self.data_dir.iterdir()):
             if not obj_folder.is_dir():
                 continue
@@ -514,8 +487,7 @@ class LightCurvePlotter:
                 if not date_folder.is_dir():
                     continue
                 date: str = date_folder.name
-                key: tuple = (obj, date)
-                if key in processed:
+                if self._is_processed(obj_folder, obj, date):
                     self.logger.info(f"Skipping {obj},{date}. Already processed")
                     continue
 
@@ -559,5 +531,3 @@ class LightCurvePlotter:
                 # CSV saving
                 lcs_folder: Path = lcs_root / date
                 self._save_csv(lcs_folder, data)
-
-                self._mark_processed(obj, date)
