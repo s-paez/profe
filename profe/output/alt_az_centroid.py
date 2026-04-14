@@ -9,6 +9,8 @@ This module generates two diagnostic plots for OPTICAM time-series photometry:
        centroid throughout the time series.
 
 These plots are useful for evaluating tracking performance and guiding stability.
+Already-processed (target, date) pairs are detected by checking whether the
+expected output PNG exists on disk, so no external state file is needed.
 """
 
 import logging
@@ -38,8 +40,7 @@ class AltAzGuidingPlotter:
         1. Altitude vs. time and Azimuth vs. time in polar projection.
         2. XY centroid displacement (in pixels) vs. time.
 
-    A hidden control file (`.Alt-Az_and_guiding.dat`) tracks processed
-    (target, date) combinations to avoid regenerating existing plots.
+    Already-processed pairs are detected by the presence of the output PNG.
     """
 
     def __init__(
@@ -50,9 +51,8 @@ class AltAzGuidingPlotter:
         """
         Initialize the AltAzGuidingPlotter instance.
 
-        Sets up directory paths, loads the list of already processed (object, date)
-        entries, and configures the observatory location for altitude–azimuth
-        calculations.
+        Sets up directory paths and configures the observatory location for
+        altitude–azimuth calculations.
 
         Args:
             site_lat (float, optional): Observatory latitude in decimal degrees.
@@ -62,44 +62,28 @@ class AltAzGuidingPlotter:
         """
         self.base_dir = Path.cwd()
         self.data_dir = self.base_dir / "organized_data"
-        self.log_dir = self.base_dir / "logs"
-        self.log_file = self.log_dir / ".Alt-Az_and_guiding.dat"
         self.location = EarthLocation(lat=site_lat * u.deg, lon=site_lon * u.deg)
-        self.processed = self._load_processed()
         self.logger = logging.getLogger(__name__)
 
-    def _load_processed(self) -> set:
+    def _is_processed(self, obj_dir: Path, date_name: str) -> bool:
         """
-        Load processed object/date entries from the control log.
-
-        Reads the hidden log file (`self.log_file`) and parses lines containing
-        an object name and an observation date separated by a comma.
-
-        Returns:
-            set[tuple[str, str]]: A set of (object, date) pairs already processed.
-        """
-        processed: set = set()
-        if self.log_file.exists():
-            for line in self.log_file.read_text().splitlines():
-                parts: list = [p.strip() for p in line.split(",")]
-                if len(parts) == 2:
-                    processed.add((parts[0], parts[1]))
-        return processed
-
-    def _record_processed(self, obj_name: str, date: str) -> None:
-        """
-        Record a processed object/date pair in the control log.
-
-        Appends the given (object, date) pair to the log file and updates the
-        `self.processed` set.
+        Check whether Alt-Az outputs already exist for (object, date).
 
         Args:
-            obj_name (str): Target object name.
-            date (str): Observation date in YYYY-MM-DD format.
+            obj_dir (Path): Path to the object directory.
+            date_name (str): Observation date folder name.
+
+        Returns:
+            bool: True if the AltAz plot PNG already exists.
         """
-        with open(self.log_file, "a") as f:
-            f.write(f"{obj_name},{date}\n")
-        self.processed.add((obj_name, date))
+        expected = (
+            obj_dir
+            / "plots"
+            / date_name
+            / "AltAz_and_guiding"
+            / f"{date_name}_AltAz_movement.png"
+        )
+        return expected.exists()
 
     def _generate_plots(
         self, obj_dir: Path, date_folder: Path, RA: float, DEC: float, target_name: str
@@ -124,15 +108,39 @@ class AltAzGuidingPlotter:
         plot_dir: Path = obj_dir / "plots" / date_folder.name / "AltAz_and_guiding"
         plot_dir.mkdir(parents=True, exist_ok=True)
 
-        # Read measurements TBL
-        tbl_files: list[Path] = list(date_folder.glob("*.tbl"))
-        if not tbl_files:
-            self.logger.info(f"No TBL in {date_folder}. Skipping date.")
+        # Read measurements
+        meas_files: list[Path] = [
+            f
+            for f in date_folder.iterdir()
+            if f.is_file()
+            and not f.name.startswith(".")
+            and f.suffix in (".tbl", ".csv")
+        ]
+        if not meas_files:
+            self.logger.info(f"No measurements in {date_folder}. Skipping date.")
             return
-        data: DataFrame = pd.read_table(tbl_files[0])
+
+        file_to_read = meas_files[0]
+        data: DataFrame
+        if file_to_read.suffix == ".tbl":
+            data = pd.read_csv(
+                file_to_read, sep=r"\t+", engine="python", encoding="latin1"
+            )
+        else:
+            data = pd.read_csv(file_to_read, encoding="latin1")
 
         # Alt-Az computation
-        jd: Series = data["JD_UTC"]
+        jd: Series
+        if "JD_UTC" in data.columns:
+            jd = data["JD_UTC"]
+        elif "BJD_TDB" in data.columns:
+            jd = data["BJD_TDB"]
+        else:
+            self.logger.warning(
+                f"No JD_UTC or BJD_TDB in {file_to_read.name}. Skipping AltAz."
+            )
+            return
+
         times: Time | Any = Time(jd, format="jd", scale="utc")
         sky: SkyCoord = SkyCoord(ra=RA, dec=DEC, unit=(u.hourangle, u.deg))
         altaz: Any = sky.transform_to(AltAz(obstime=times, location=self.location))
@@ -155,27 +163,6 @@ class AltAzGuidingPlotter:
         msg: str = f"Saved Alt_Az plot for {target_name} in {date_folder.name}"
         self.logger.info(msg)
 
-        # Star-centroid movement
-        x0 = data["X(FITS)_T1"][0]
-        y0 = data["Y(FITS)_T1"][0]
-        x_mov = (data["X(FITS)_T1"] - x0).tolist()
-        y_mov = (data["Y(FITS)_T1"] - y0).tolist()
-
-        # Star-centroid movement plot
-        plt.figure()
-        plt.plot(data["BJD_TDB"], x_mov, ".", label="X mov.", alpha=0.5)
-        plt.plot(data["BJD_TDB"], y_mov, ".", label="Y mov.", alpha=0.5)
-        plt.xlabel("BJD_TDB")
-        plt.ylabel("Movement (pixels)")
-        plt.title(f"{date_folder.name}: {target_name}-centroid movement")
-        plt.legend()
-        plt.grid(alpha=0.3)
-        cent_path: Path = plot_dir / f"{date_folder.name}_T1_centroid_mov.png"
-        plt.savefig(cent_path, dpi=300)
-        plt.close()
-        msg2: str = f"Saved {target_name} in {date_folder.name} centroid movement plot"
-        self.logger.info(msg2)
-
     def process_object(self, obj_dir: Path) -> None:
         """
         Generate plots for all observation dates of a single object.
@@ -187,9 +174,8 @@ class AltAzGuidingPlotter:
             1. Verify FITS files exist in `obj_dir`.
             2. Extract RA, DEC, and OBJECT from FITS header.
             3. For each date folder in `measurements/`:
-                - Skip if already processed.
+                - Skip if output already exists.
                 - Generate plots using `_generate_plots()`.
-                - Record the processed (object, date) in the log.
 
         Args:
             obj_dir (Path): Path to the object folder.
@@ -214,21 +200,20 @@ class AltAzGuidingPlotter:
         for date_folder in sorted(measurements_root.iterdir()):
             if not date_folder.is_dir():
                 continue
-            key: tuple[str, str] = (obj_dir.name, date_folder.name)
-            if key in self.processed:
-                msg: str = f"{key} already processed"
+            if self._is_processed(obj_dir, date_folder.name):
+                msg: str = f"({obj_dir.name}, {date_folder.name}) already processed"
                 self.logger.info(msg)
                 continue
 
             self._generate_plots(obj_dir, date_folder, RA, DEC, target)
-            self._record_processed(obj_dir.name, date_folder.name)
 
     def run(self) -> None:
         """
         Process all objects in the organized data directory.
 
         Scans each subdirectory under `self.data_dir`. If it contains a
-        `measurements/` subfolder, calls `process_object()` to generate plots.
+        `measurements/` subfolder and its output does not yet exist, calls
+        `process_object()` to generate plots.
 
         Returns:
             None

@@ -10,10 +10,10 @@ including:
       analysis.
     - ExofopPlotter: Generates plots and products for EXOFOP submission.
 
-Logs are saved to `logs/profe_out.log`.
+Each module skips already-processed (object, date) pairs by checking whether
+the expected output files exist on disk.
 
-TODO:
-    Implement additional outputs for EXOFOP submission.
+Logs are saved to `logs/profe_out.log`.
 """
 
 import logging

@@ -8,6 +8,9 @@ time intervals provided via a `times.csv` file.
 
 The analysis follows the time-averaging method proposed by Cubillos et al. (2017)
 using the MC3 package.
+
+Already-processed (object, date) pairs are detected by checking whether the
+expected output directory contains PNG files, so no external state file is needed.
 """
 
 import logging
@@ -30,6 +33,9 @@ class TimeAveragingPlotter:
     computing RMS-vs.-bin-size curves for each filter and photometric method. The
     results are plotted and saved to disk, with dashed lines indicating the expected
     white-noise scaling.
+
+    Already-processed pairs are detected by the presence of output PNGs in the
+    `time-avg` directory.
     """
 
     def __init__(self) -> None:
@@ -51,6 +57,23 @@ class TimeAveragingPlotter:
         self.n_processes = cpu_count()
         self.log_dir = self.base_dir / "logs"
         self.logger = logging.getLogger(__name__)
+
+    def _is_processed(self, obj_dir: Path, date_name: str) -> bool:
+        """
+        Check whether time-averaging outputs already exist for (object, date).
+
+        Args:
+            obj_dir (Path): Path to the object directory.
+            date_name (str): Observation date folder name.
+
+        Returns:
+            bool: True if the time-avg directory exists and contains at
+                least one PNG file.
+        """
+        time_avg_dir = obj_dir / "plots" / date_name / "time-avg"
+        if not time_avg_dir.is_dir():
+            return False
+        return any(time_avg_dir.glob("*.png"))
 
     def load_times_file(self, date_dir: Path) -> DataFrame | None:
         """
@@ -111,9 +134,9 @@ class TimeAveragingPlotter:
         mask_array: Any = (data_JD >= start[:, None]) & (data_JD <= end[:, None])
         return np.any(mask_array, axis=0)
 
-    def process_filter_method(self, args: tuple) -> tuple:
+    def process_filter(self, args: tuple) -> tuple:
         """
-        Compute time-averaging noise metrics for one filter–method combination.
+        Compute time-averaging noise metrics for one filter.
 
         Reads a light-curve TBL file, optionally applies a time mask, normalizes
         the flux, calculates residuals, and uses `mc3.stats.time_avg` to compute:
@@ -125,25 +148,39 @@ class TimeAveragingPlotter:
             - Bin sizes
 
         Args:
-            args (tuple): (filter, method, tbl_path, times) where:
+            args (tuple): (filter, tbl_path, times) where:
                 filter (str): Photometric filter name.
-                method (str): Photometric extraction method.
                 tbl_path (Path): Path to the TBL file.
                 times (Optional[DataFrame]): Time intervals for masking.
 
         Returns:
-            tuple[str, str, DataFrame]: Filter, method, and the computed metrics
+            tuple[str, DataFrame]: Filter name and the computed metrics
             as a DataFrame.
         """
-        fil, meth, tbl_path, times = args
-        df: DataFrame = pd.read_table(tbl_path, encoding="latin1", sep="\t")
+        fil, tbl_path, times = args
+        try:
+            df: DataFrame
+            if tbl_path.suffix == ".tbl":
+                df = pd.read_csv(
+                    tbl_path, sep=r"\t+", engine="python", encoding="latin1"
+                )
+            else:
+                df = pd.read_csv(tbl_path, encoding="latin1")
+        except Exception as e:
+            self.logger.error(f"Error reading {tbl_path}: {e}")
+            return fil, DataFrame()
+
+        if "BJD_TDB" not in df.columns or "rel_flux_T1" not in df.columns:
+            self.logger.warning(f"Missing columns in {tbl_path.name}.")
+            return fil, DataFrame()
+
         mask_idx: Series = self.mask(df, times)
         sub: DataFrame | Series = df[mask_idx]
 
         if sub.empty:
-            msg: str = f"No data after masking for {fil}-{meth}."
+            msg: str = f"No data after masking for {fil}."
             self.logger.warning(msg)
-            return fil, meth, DataFrame()
+            return fil, DataFrame()
 
         flux: Any = sub["rel_flux_T1"].values
         med: float = float(np.median(flux))
@@ -152,20 +189,19 @@ class TimeAveragingPlotter:
         maxbins: int = len(residuals) // 2
 
         rms, rmslo, rmshi, stderr, bins = ms.time_avg(residuals, maxbins)
-        pref: str = f"{fil}-{meth}"
         df_out: DataFrame = DataFrame(
             {
-                f"{pref}-rms": rms,
-                f"{pref}-rmslo": rmslo,
-                f"{pref}-rmshi": rmshi,
-                f"{pref}-stderr": stderr,
-                f"{pref}-binszmc": bins,
+                f"{fil}-rms": rms,
+                f"{fil}-rmslo": rmslo,
+                f"{fil}-rmshi": rmshi,
+                f"{fil}-stderr": stderr,
+                f"{fil}-binsz": bins,
             }
         )
 
-        msg = f" Time-averaging: {fil}-{meth}"
+        msg = f" Time-averaging: {fil}"
         self.logger.info(msg)
-        return fil, meth, df_out
+        return fil, df_out
 
     def run(self) -> None:
         """
@@ -173,14 +209,22 @@ class TimeAveragingPlotter:
 
         For each target and observation date:
             1. Load optional time intervals from a CSV.
-            2. Identify all TBL files and parse their filter/method names.
-            3. Process each filter–method combination in parallel.
-            4. Aggregate results by filter.
-            5. Generate red-noise plots and save them to disk.
+            2. Identify all TBL files and parse their filter names.
+            3. Process each filter in parallel.
+            4. Generate a combined multi-band red-noise plot.
 
         Returns:
             None
         """
+        band_colors: dict = {
+            "gp": "dodgerblue",
+            "g": "dodgerblue",
+            "rp": "forestgreen",
+            "r": "forestgreen",
+            "ip": "red",
+            "i": "red",
+        }
+
         for obj_dir in sorted(self.data_dir.iterdir()):
             if not obj_dir.is_dir():
                 continue
@@ -196,96 +240,82 @@ class TimeAveragingPlotter:
                 msg = f"Processing {obj_dir.name} Date {date_dir.name}"
                 self.logger.info(msg)
 
+                if self._is_processed(obj_dir, date_dir.name):
+                    msg = f"({obj_dir.name}, {date_dir.name}) already processed"
+                    self.logger.info(msg)
+                    continue
+
                 times_df: DataFrame | None = self.load_times_file(date_dir)
 
-                tbls: list = list(date_dir.glob("*.tbl"))
-                if not tbls:
-                    msg = f"No TBL in {date_dir}. Skipping."
+                meas_files: list = [
+                    f
+                    for f in date_dir.iterdir()
+                    if f.is_file()
+                    and not f.name.startswith(".")
+                    and f.suffix in (".tbl", ".csv")
+                ]
+                if not meas_files:
+                    msg = f"No measurements in {date_dir}. Skipping."
                     self.logger.warning(msg)
                     continue
 
-                filters: set = set()
-                methods: set = set()
+                # Parse filter names from filenames (last part of stem)
                 fmap: dict = {}
-                for p in tbls:
+                for p in meas_files:
                     parts: list = p.stem.split("_")
-                    if len(parts) < 3:
+                    if len(parts) < 2:
                         continue
-                    f, m = parts[1], parts[2]
-                    filters.add(f)
-                    methods.add(m)
-                    fmap[(f, m)] = p
+                    fil: str = parts[-1]
+                    fmap[fil] = p
 
                 if not fmap:
                     msg = f"Invalid format in {date_dir}. Skipping."
                     self.logger.warning(msg)
                     continue
 
-                filters = set(sorted(filters))
-                methods = set(sorted(methods))
-                args: list = [
-                    (f, m, fmap[(f, m)], times_df)
-                    for f in filters
-                    for m in methods
-                    if (f, m) in fmap
-                ]
+                args: list = [(fil, path, times_df) for fil, path in fmap.items()]
 
-                # Process each (filter, method) in parallel
+                # Process each filter in parallel
                 with Pool(processes=self.n_processes) as pool:
-                    results: list = pool.map(self.process_filter_method, args)
-
-                # Aggregate results by filter
-                time_avgs: dict = {f: DataFrame() for f in filters}
-                for f, m, df_r in results:
-                    if not df_r.empty:
-                        time_avgs[f] = pd.concat([time_avgs[f], df_r], axis=1)
-
-                cmap: plt.Colormap = plt.get_cmap("Paired")
-                colors: dict = {m: cmap(i % cmap.N) for i, m in enumerate(methods)}
+                    results: list = pool.map(self.process_filter, args)
 
                 out_root: Path = obj_dir / "plots" / date_dir.name / "time-avg"
                 out_root.mkdir(parents=True, exist_ok=True)
 
-                # Generate and save red-noise plots per filter
-                for f in filters:
-                    dfp: DataFrame = time_avgs[f]
-                    if dfp.empty:
-                        msg = f"No data in filter{f}."
-                        self.logger.warning(msg)
+                # Generate combined multi-band plot
+                plt.figure(figsize=(8, 6))
+                has_data: bool = False
+                for fil, df_r in results:
+                    if df_r.empty:
                         continue
+                    fc: str = band_colors.get(fil, "black")
+                    b: Any = df_r[f"{fil}-binsz"]
+                    r: Any = df_r[f"{fil}-rms"]
+                    lo: Any = df_r[f"{fil}-rmslo"]
+                    hi: Any = df_r[f"{fil}-rmshi"]
+                    se: Any = df_r[f"{fil}-stderr"]
 
-                    plt.figure(figsize=(8, 6))
-                    for m in methods:
-                        pre: str = f"{f}-{m}"
-                        colb: str = f"{pre}-binszmc"
-                        if colb not in dfp:
-                            continue
-                        b: DataFrame | Series | Any = dfp[colb]
-                        r: DataFrame | Series | Any = dfp[f"{pre}-rms"]
-                        lo: DataFrame | Series | Any = dfp[f"{pre}-rmslo"]
-                        hi: DataFrame | Series | Any = dfp[f"{pre}-rmshi"]
-                        se: DataFrame | Series | Any = dfp[f"{pre}-stderr"]
+                    plt.errorbar(
+                        b,
+                        r,
+                        yerr=[lo, hi],
+                        fmt="-",
+                        capsize=0,
+                        color="0.8",
+                        zorder=0,
+                    )
+                    plt.loglog(b, r, ls="-", label=fil, color=fc)
+                    plt.loglog(b, se, ls="--", lw=2, color=fc)
+                    has_data = True
 
-                        plt.errorbar(
-                            b,
-                            r,
-                            yerr=[lo, hi],
-                            fmt="-",
-                            capsize=0,
-                            color="0.8",
-                            zorder=0,
-                        )
-                        plt.loglog(b, r, ls="-", label=m, color=colors[f"{m}"])
-                        plt.loglog(b, se, ls="--", lw=2, color=colors[f"{m}"])
-
+                if has_data:
                     plt.legend(loc="best")
                     plt.xlabel("Bin size")
                     plt.ylabel("RMS")
-                    plt.title(f"{obj_dir.name} | {date_dir.name} | filter {f}")
+                    plt.title(f"{obj_dir.name} | {date_dir.name} | all bands")
                     plt.tight_layout()
-
-                    fname: Path = out_root / f"time-averaging-{f}.png"
+                    fname: Path = out_root / "time-averaging-all-bands.png"
                     plt.savefig(fname, dpi=300)
-                    plt.close()
                     msg = f"{fname} Saved."
                     self.logger.info(msg)
+                plt.close()

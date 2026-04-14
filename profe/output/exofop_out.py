@@ -6,14 +6,14 @@ This module creates two products for each target and observation date:
     1) Aperture visualization: overlays source and sky annuli on a science image.
     2) Radial profile: plots the radial brightness profile (with errors).
 
-Outputs are saved under `exofop/<DATE-OBS>/` inside each object directory. A control
-file (`logs/.exofop_processed.dat`) records processed (object, date) pairs to avoid
-reprocessing.
+Outputs are saved under `exofop/<DATE-OBS>/` inside each object directory.
+Already-processed (object, date) pairs are detected by checking whether the
+expected output PNG exists on disk, so no external state file is needed.
 """
 
 import logging
 from pathlib import Path
-from typing import Any, Set
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,61 +29,34 @@ class ExofopPlotter:
     Create aperture-visualization and radial-profile plots for EXOFOP.
 
     This class scans the `organized_data` tree, builds EXOFOP-ready plots per
-    target and date, and records processed items to prevent duplicate work.
+    target and date. Already-processed pairs are detected by the presence of
+    the output PNG.
     """
 
     def __init__(self) -> None:
         """
-        Initialize directories, logger, and processed-state tracking.
+        Initialize directories and logger.
 
-        Sets the base, logs, organized-data, and corrected-data paths; ensures the
-        processed-state file exists; and loads the in-memory set of processed
-        (object, date) pairs.
+        Sets the base, organized-data, and corrected-data paths.
         """
         self.base_dir = Path.cwd()
-        self.logs_dir = self.base_dir / "logs"
         self.data_dir = self.base_dir / "organized_data"
         self.corrected = self.base_dir / "corrected_3x3"
-
-        self.processed_file = self.logs_dir / ".exofop_processed.dat"
-        if not self.processed_file.exists():
-            self.processed_file.write_text("")
-
         self.logger = logging.getLogger(__name__)
-        self.processed = self._load_processed()
 
-    def _load_processed(self) -> Set:
+    def _is_processed(self, obj_dir: Path, date_name: str) -> bool:
         """
-        Load processed (object, date) pairs from the control file.
-
-        Returns:
-            set[tuple[str, str]]: Pairs already processed and recorded in
-                `logs/.exofop_processed.dat`.
-        """
-        processed: set = set()
-        text: str = self.processed_file.read_text()
-        for line in text.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            parts: list = [p.strip() for p in line.split(",")]
-            if len(parts) == 2:
-                processed.add((parts[0], parts[1]))
-        return processed
-
-    def _mark_processed(self, obj: str, date: str) -> None:
-        """
-        Record a processed (object, date) pair.
-
-        Appends the pair to `logs/.exofop_processed.dat` and updates the in-memory set.
+        Check whether EXOFOP outputs already exist for (object, date).
 
         Args:
-            obj (str): Target object name.
-            date (str): Observation date (e.g., 'YYYY-MM-DD').
+            obj_dir (Path): Path to the object directory.
+            date_name (str): Observation date folder name.
+
+        Returns:
+            bool: True if the aperture plot PNG already exists.
         """
-        with open(self.processed_file, "a") as f:
-            f.write(f"{obj},{date}\n")
-        self.processed.add((obj, date))
+        expected = obj_dir / "exofop" / date_name / f"{date_name}_aperture.png"
+        return expected.exists()
 
     def _generate_plots(
         self, obj_dir: Path, date_folder: Path, target_name: str
@@ -107,11 +80,25 @@ class ExofopPlotter:
         exofop_dir: Path = obj_dir / "exofop" / date_folder.name
         exofop_dir.mkdir(parents=True, exist_ok=True)
 
-        tbl_files: list = list(date_folder.glob("*.tbl"))
-        if not tbl_files:
-            self.logger.info(f"No TBL in {date_folder}. Skipping.")
+        meas_files: list[Path] = [
+            f
+            for f in date_folder.iterdir()
+            if f.is_file()
+            and not f.name.startswith(".")
+            and f.suffix in (".tbl", ".csv")
+        ]
+        if not meas_files:
+            self.logger.info(f"No measurements in {date_folder}. Skipping.")
             return
-        data: DataFrame = pd.read_table(tbl_files[0])
+
+        file_to_read = meas_files[0]
+        data: DataFrame
+        if file_to_read.suffix == ".tbl":
+            data = pd.read_csv(
+                file_to_read, sep=r"\t+", engine="python", encoding="latin1"
+            )
+        else:
+            data = pd.read_csv(file_to_read, encoding="latin1")
 
         fits_dir: Path = obj_dir / date_folder.name
         fits_cands: list = list(fits_dir.rglob("*.fit*"))
@@ -200,9 +187,8 @@ class ExofopPlotter:
         Finds a representative FITS to determine the target name, then for each date
         subfolder under `measurements/`:
 
-            - Skip if already processed.
+            - Skip if output already exists.
             - Generate EXOFOP plots via `_generate_plots`.
-            - Mark the (object, date) pair as processed.
 
         Args:
             obj_dir (Path): Path to the object directory within `organized_data`.
@@ -226,13 +212,13 @@ class ExofopPlotter:
         for date_folder in sorted(measurements_root.iterdir()):
             if not date_folder.is_dir():
                 continue
-            key: tuple = (obj_dir.name, date_folder.name)
-            if key in self.processed:
-                self.logger.info(f"{key} already processed")
+            if self._is_processed(obj_dir, date_folder.name):
+                self.logger.info(
+                    f"({obj_dir.name}, {date_folder.name}) already processed"
+                )
                 continue
 
             self._generate_plots(obj_dir, date_folder, target)
-            self._mark_processed(obj_dir.name, date_folder.name)
 
     def run(self) -> None:
         """
