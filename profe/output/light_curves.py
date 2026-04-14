@@ -137,7 +137,11 @@ class LightCurvePlotter:
             list[Path]: Paths to all `.tbl` and `.csv` files in the folder.
         """
         return [
-            f for f in folder.iterdir() if f.is_file() and f.suffix in (".tbl", ".csv")
+            f
+            for f in folder.iterdir()
+            if f.is_file()
+            and not f.name.startswith(".")
+            and f.suffix in (".tbl", ".csv")
         ]
 
     def _calc_rms_ppt(self, data: Series) -> float:
@@ -525,9 +529,11 @@ class LightCurvePlotter:
                 for f in meas_files:
                     df: DataFrame
                     if f.suffix == ".tbl":
-                        df = pd.read_csv(f, sep=r"\t+", engine="python")
+                        df = pd.read_csv(
+                            f, sep=r"\t+", engine="python", encoding="latin1"
+                        )
                     elif f.suffix == ".csv":
-                        df = pd.read_csv(f)
+                        df = pd.read_csv(f, encoding="latin1")
                     else:
                         continue
 
