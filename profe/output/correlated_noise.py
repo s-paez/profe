@@ -136,7 +136,22 @@ class TimeAveragingPlotter:
             as a DataFrame.
         """
         fil, meth, tbl_path, times = args
-        df: DataFrame = pd.read_table(tbl_path, encoding="latin1", sep="\t")
+        try:
+            df: DataFrame
+            if tbl_path.suffix == ".tbl":
+                df = pd.read_csv(
+                    tbl_path, sep=r"\t+", engine="python", encoding="latin1"
+                )
+            else:
+                df = pd.read_csv(tbl_path, encoding="latin1")
+        except Exception as e:
+            self.logger.error(f"Error reading {tbl_path}: {e}")
+            return fil, meth, DataFrame()
+
+        if "BJD_TDB" not in df.columns or "rel_flux_T1" not in df.columns:
+            self.logger.warning(f"Missing columns in {tbl_path.name}.")
+            return fil, meth, DataFrame()
+
         mask_idx: Series = self.mask(df, times)
         sub: DataFrame | Series = df[mask_idx]
 
@@ -198,20 +213,30 @@ class TimeAveragingPlotter:
 
                 times_df: DataFrame | None = self.load_times_file(date_dir)
 
-                tbls: list = list(date_dir.glob("*.tbl"))
-                if not tbls:
-                    msg = f"No TBL in {date_dir}. Skipping."
+                meas_files: list = [
+                    f
+                    for f in date_dir.iterdir()
+                    if f.is_file()
+                    and not f.name.startswith(".")
+                    and f.suffix in (".tbl", ".csv")
+                ]
+                if not meas_files:
+                    msg = f"No measurements in {date_dir}. Skipping."
                     self.logger.warning(msg)
                     continue
 
                 filters: set = set()
                 methods: set = set()
                 fmap: dict = {}
-                for p in tbls:
+                for p in meas_files:
                     parts: list = p.stem.split("_")
-                    if len(parts) < 3:
+                    if len(parts) < 2:
                         continue
-                    f, m = parts[1], parts[2]
+                    elif len(parts) == 2:
+                        f, m = parts[1], "None"
+                    else:
+                        f, m = parts[-2], parts[-1]
+
                     filters.add(f)
                     methods.add(m)
                     fmap[(f, m)] = p

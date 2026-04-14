@@ -124,15 +124,39 @@ class AltAzGuidingPlotter:
         plot_dir: Path = obj_dir / "plots" / date_folder.name / "AltAz_and_guiding"
         plot_dir.mkdir(parents=True, exist_ok=True)
 
-        # Read measurements TBL
-        tbl_files: list[Path] = list(date_folder.glob("*.tbl"))
-        if not tbl_files:
-            self.logger.info(f"No TBL in {date_folder}. Skipping date.")
+        # Read measurements
+        meas_files: list[Path] = [
+            f
+            for f in date_folder.iterdir()
+            if f.is_file()
+            and not f.name.startswith(".")
+            and f.suffix in (".tbl", ".csv")
+        ]
+        if not meas_files:
+            self.logger.info(f"No measurements in {date_folder}. Skipping date.")
             return
-        data: DataFrame = pd.read_table(tbl_files[0])
+
+        file_to_read = meas_files[0]
+        data: DataFrame
+        if file_to_read.suffix == ".tbl":
+            data = pd.read_csv(
+                file_to_read, sep=r"\t+", engine="python", encoding="latin1"
+            )
+        else:
+            data = pd.read_csv(file_to_read, encoding="latin1")
 
         # Alt-Az computation
-        jd: Series = data["JD_UTC"]
+        jd: Series
+        if "JD_UTC" in data.columns:
+            jd = data["JD_UTC"]
+        elif "BJD_TDB" in data.columns:
+            jd = data["BJD_TDB"]
+        else:
+            self.logger.warning(
+                f"No JD_UTC or BJD_TDB in {file_to_read.name}. Skipping AltAz."
+            )
+            return
+
         times: Time | Any = Time(jd, format="jd", scale="utc")
         sky: SkyCoord = SkyCoord(ra=RA, dec=DEC, unit=(u.hourangle, u.deg))
         altaz: Any = sky.transform_to(AltAz(obstime=times, location=self.location))
@@ -154,27 +178,6 @@ class AltAzGuidingPlotter:
         plt.close()
         msg: str = f"Saved Alt_Az plot for {target_name} in {date_folder.name}"
         self.logger.info(msg)
-
-        # Star-centroid movement
-        x0 = data["X(FITS)_T1"][0]
-        y0 = data["Y(FITS)_T1"][0]
-        x_mov = (data["X(FITS)_T1"] - x0).tolist()
-        y_mov = (data["Y(FITS)_T1"] - y0).tolist()
-
-        # Star-centroid movement plot
-        plt.figure()
-        plt.plot(data["BJD_TDB"], x_mov, ".", label="X mov.", alpha=0.5)
-        plt.plot(data["BJD_TDB"], y_mov, ".", label="Y mov.", alpha=0.5)
-        plt.xlabel("BJD_TDB")
-        plt.ylabel("Movement (pixels)")
-        plt.title(f"{date_folder.name}: {target_name}-centroid movement")
-        plt.legend()
-        plt.grid(alpha=0.3)
-        cent_path: Path = plot_dir / f"{date_folder.name}_T1_centroid_mov.png"
-        plt.savefig(cent_path, dpi=300)
-        plt.close()
-        msg2: str = f"Saved {target_name} in {date_folder.name} centroid movement plot"
-        self.logger.info(msg2)
 
     def process_object(self, obj_dir: Path) -> None:
         """

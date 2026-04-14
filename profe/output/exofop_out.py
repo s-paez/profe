@@ -107,11 +107,25 @@ class ExofopPlotter:
         exofop_dir: Path = obj_dir / "exofop" / date_folder.name
         exofop_dir.mkdir(parents=True, exist_ok=True)
 
-        tbl_files: list = list(date_folder.glob("*.tbl"))
-        if not tbl_files:
-            self.logger.info(f"No TBL in {date_folder}. Skipping.")
+        meas_files: list[Path] = [
+            f
+            for f in date_folder.iterdir()
+            if f.is_file()
+            and not f.name.startswith(".")
+            and f.suffix in (".tbl", ".csv")
+        ]
+        if not meas_files:
+            self.logger.info(f"No measurements in {date_folder}. Skipping.")
             return
-        data: DataFrame = pd.read_table(tbl_files[0])
+
+        file_to_read = meas_files[0]
+        data: DataFrame
+        if file_to_read.suffix == ".tbl":
+            data = pd.read_csv(
+                file_to_read, sep=r"\t+", engine="python", encoding="latin1"
+            )
+        else:
+            data = pd.read_csv(file_to_read, encoding="latin1")
 
         fits_dir: Path = obj_dir / date_folder.name
         fits_cands: list = list(fits_dir.rglob("*.fit*"))

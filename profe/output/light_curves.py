@@ -18,14 +18,12 @@ avoid reprocessing.
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Set
+from typing import Dict, Optional, Set
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.colors import to_hex
-from matplotlib.pyplot import Colormap
-from numpy import ndarray
 from numpy.typing import NDArray
 from pandas import DataFrame, Series
 
@@ -128,70 +126,84 @@ class LightCurvePlotter:
             df_new_tf.to_csv(folder / "times" / "times.csv", index=False)
             return None
 
-    def _obtain_tbls(self, folder: Path) -> list[Path]:
+    def _obtain_measurements(self, folder: Path) -> list[Path]:
         """
-        List all AIJ measurement table files in a folder.
+        List all AIJ measurement table files in a folder (.tbl or .csv).
 
         Args:
             folder (Path): Path to a `measurements/` directory.
 
         Returns:
-            list[Path]: Paths to all `.tbl` files in the folder.
+            list[Path]: Paths to all `.tbl` and `.csv` files in the folder.
         """
-        return [f for f in folder.glob("*.tbl")]
+        return [
+            f
+            for f in folder.iterdir()
+            if f.is_file()
+            and not f.name.startswith(".")
+            and f.suffix in (".tbl", ".csv")
+        ]
 
-    def _calculate_rms(
-        self,
-        flux: Series,
-        times: Optional[DataFrame],
-        t: Series,
-    ) -> tuple[float, str]:
-        """
-        Calculate RMS of the flux, optionally within specific time intervals.
+    def _calc_rms_ppt(self, data: Series) -> float:
+        clean_data = data[~np.isnan(data)]
+        if len(clean_data) == 0:
+            return np.nan
+        return float(np.std(clean_data) / np.abs(np.median(clean_data)) * 1000)
 
-        Args:
-            flux (Series): Normalized flux values.
-            times (Optional[DataFrame]): DataFrame containing time intervals.
-            t (Series): Time values corresponding to the flux.
+    def _calc_rms_in_intervals(
+        self, time: NDArray, data: NDArray, times_df: Optional[DataFrame]
+    ) -> float:
+        if times_df is not None and not times_df.empty:
+            mask = np.zeros(len(time), dtype=bool)
+            for i, f in zip(times_df["init_time"], times_df["final_time"]):
+                mask |= (time >= i) & (time <= f)
+            selected = data[mask]
 
-        Returns:
-            tuple[float, str]: Calculated RMS value and formatted string for plot label.
-        """
-        diff: Series
-        if times is None:
-            median_val = flux.median()
-            diff = flux - median_val
-            rms = np.sqrt(np.mean(diff**2))
-            rms_txt = f" (RMS:{rms:.4f})"
+            if len(selected) == 0:
+                selected = data
         else:
-            mask: Any = np.zeros(len(flux), dtype=bool)
-            for i, f in zip(times["init_time"], times["final_time"]):
-                mask |= (t >= i) & (t <= f)
-            sel = flux[mask]
+            selected = data
+        return self._calc_rms_ppt(pd.Series(selected))
 
-            if len(sel):
-                median_val = sel.median()
-                diff = sel - median_val
-                rms = np.sqrt(np.mean(diff**2))
-                rms_txt = f" (RMS:{rms:.4f})"
+    def _bin_data(
+        self, time: NDArray, col: NDArray, err_col: NDArray, bin_width_minutes: float
+    ) -> tuple[NDArray, NDArray, NDArray]:
+        bin_width_days: float = bin_width_minutes / (24 * 60)
+        bins = np.arange(time.min(), time.max() + bin_width_days, bin_width_days)
+        bin_centers = 0.5 * (bins[1:] + bins[:-1])
+        bin_vals = np.zeros(len(bin_centers))
+        bin_errs = np.zeros(len(bin_centers))
+
+        for j in range(len(bin_centers)):
+            mask = (time >= bins[j]) & (time < bins[j + 1])
+            n_pts: int = np.sum(mask)
+            if n_pts > 0:
+                bin_vals[j] = np.nanmean(col[mask])
+                bin_errs[j] = np.nanstd(col[mask]) / np.sqrt(n_pts)
             else:
-                # Fallback to full data if mask is empty
-                median_val = flux.median()
-                diff = flux - median_val
-                rms = np.sqrt(np.mean(diff**2))
-                rms_txt = f" (RMS:{rms:.4f})"
-        return rms, rms_txt
+                bin_vals[j] = np.nan
+                bin_errs[j] = np.nan
 
-    def _save_method_csv(self, date_folder: Path, method: str, filt_dict: Dict) -> None:
+        return bin_centers, bin_vals, bin_errs
+
+    def _get_band_color(self, band: str) -> Optional[str]:
+        if band in ("gp", "g"):
+            return "dodgerblue"
+        elif band in ("rp", "r"):
+            return "forestgreen"
+        elif band in ("ip", "i"):
+            return "red"
+        return None
+
+    def _save_csv(self, date_folder: Path, filt_dict: Dict) -> None:
         """
-        Save a normalized multiband light curve CSV for a processing method.
+        Save a normalized multiband light curve CSV.
 
         Normalizes flux and error columns for each filter by the median flux, then
         merges all filters side by side into a single CSV.
 
         Args:
             date_folder (Path): Output directory for the CSV.
-            method (str): Processing method name (used in filename).
             filt_dict (dict[str, DataFrame]): Mapping of filter name to its light
                 curve DataFrame. Each DataFrame must have 'BJD_TDB', 'rel_flux_T1',
                 and 'rel_flux_err_T1' columns.
@@ -212,105 +224,262 @@ class LightCurvePlotter:
             frames.append(tmp)
         df_merged: DataFrame = pd.concat(frames, axis=1)
         os.makedirs(date_folder, exist_ok=True)
-        out_csv: Path = date_folder / f"{method}_norm_gri_lcs.csv"
+        out_csv: Path = date_folder / "norm_gri_lcs.csv"
         df_merged.to_csv(out_csv, index=False)
         msg: str = f"Saved normalized CSV: {out_csv}"
         self.logger.info(msg)
 
-    def _create_plot(
+    def _create_multipanel_plot(
         self,
         obj: str,
         date: str,
-        datasets: Dict,
-        times: Optional[DataFrame],
+        data: Dict,
+        times_df: Optional[DataFrame],
         out_folder: Path,
-        label_type: str,
-        label_value: str,
     ) -> None:
-        """
-        Generate and save a light curve plot with raw and binned data.
+        mpl.rcParams.update({"font.family": "serif", "font.size": 14})
+        if not data:
+            return
 
-        Plots individual points with transparency, binned medians at
-        `self.bin_minutes`, and RMS values in the legend. Optionally marks
-        time-interval boundaries from a `times.csv` file.
-
-        Args:
-            obj (str): Target object name.
-            date (str): Observation date.
-            datasets (dict[str, tuple[DataFrame, str]]): Mapping from dataset label
-                to (DataFrame, color).
-            times (Optional[DataFrame]): Optional time intervals for RMS calculation.
-            out_folder (Path): Output directory for the plot.
-            label_type (str): Label descriptor (e.g., 'filter', 'method').
-            label_value (str): Label value for title/filename.
-        """
-        fig, ax = plt.subplots(figsize=(10, 6))
-        bin_days: float = self.bin_minutes / (24 * 60)
-        for label, (df, color) in datasets.items():
-            t: Series = df["BJD_TDB"]
-            flux: Series = df["rel_flux_T1"] / df["rel_flux_T1"].median()
-            err: Series = df["rel_flux_err_T1"] / df["rel_flux_T1"].median()
-            rms: float
-            rms_txt: str
-            # median_val: float
-            # diff: Series
-
-            if times is None:
-                rms, rms_txt = self._calculate_rms(flux, None, t)
-            else:
-                rms, rms_txt = self._calculate_rms(flux, times, t)
-
-            # All datapoints
-            ax.errorbar(
-                t, flux, yerr=err, fmt=".", color=color, alpha=0.05, markersize=4
-            )
-
-            # Binned datapoints
-            bin_edges: ndarray = np.arange(t.min(), t.max() + bin_days, bin_days)
-            bins: Sequence = bin_edges.tolist()
-
-            temp = pd.DataFrame({"t": t, "f": flux, "e": err})
-            grp = temp.groupby(pd.cut(temp["t"], bins), observed=False)
-
-            bt_arr: NDArray[np.float64] = grp["t"].median().to_numpy(dtype=np.float64)
-            bf_arr: NDArray[np.float64] = grp["f"].median().to_numpy(dtype=np.float64)
-
-            sum_e2: pd.Series = grp["e"].apply(lambda x: np.sum(x**2))
-            count_e: pd.Series = grp["e"].count()
-            be_arr: NDArray[np.float64] = np.sqrt(
-                sum_e2.to_numpy(dtype=np.float64)
-            ) / count_e.to_numpy(dtype=np.float64)
-
-            ax.errorbar(
-                bt_arr.tolist(),
-                bf_arr.tolist(),
-                yerr=be_arr.tolist(),
-                fmt="o",
-                color=color,
-                alpha=1.0,
-                markersize=4,
-                label=label + rms_txt,
-            )
-
-            # Plot RMS intervals
-            if times is not None:
-                for i, f in zip(times["init_time"], times["final_time"]):
-                    ax.axvline(i, linestyle="-.", color="g", alpha=0.7)
-                    ax.axvline(f, linestyle="-.", color="g", alpha=0.7)
-
-        h, leg = ax.get_legend_handles_labels()
-        by_label: dict = dict(zip(leg, h))
-        ax.legend(by_label.values(), by_label.keys())
-        ax.set_title(
-            f"{obj} {date} — {self.bin_minutes}min bins - {label_type}: {label_value} "
+        fig, axs = plt.subplots(
+            6,
+            1,
+            figsize=(10, 17),
+            sharex=True,
+            gridspec_kw={
+                "hspace": 0.0,
+                "height_ratios": [1.5, 0.8, 0.8, 0.8, 0.8, 0.8],
+            },
         )
-        ax.set_xlabel("BJD_TDB")
-        ax.set_ylabel("Normalized flux")
+
+        flux_col = "rel_flux_T1"
+        err_col = "rel_flux_err_T1"
+        time_col = "BJD_TDB"
+
+        first_band = list(data.keys())[0]
+        df_first = data[first_band]
+        t0 = df_first[time_col].values[0]
+        time_mid = np.nanmedian(df_first[time_col].values - t0)
+
+        # 1. Light curve panel
+        for band, df in data.items():
+            t = df[time_col].values - t0
+            f = df[flux_col].values / np.median(df[flux_col].values)
+            e = df[err_col].values / np.median(df[flux_col].values)
+
+            c = self._get_band_color(band)
+            kwargs = {}
+            if c:
+                kwargs["color"] = c
+
+            axs[0].errorbar(
+                t,
+                f,
+                yerr=e,
+                fmt=".",
+                alpha=0.1,
+                elinewidth=0.5,
+                capsize=2,
+                label="_nolegend_",
+                **kwargs,
+            )
+
+            t_bin, f_bin, e_bin = self._bin_data(t, f, e, self.bin_minutes)
+
+            rms_data = self._calc_rms_in_intervals(t, f, times_df)
+            rms_bin = self._calc_rms_in_intervals(t_bin, f_bin, times_df)
+
+            markeredge = c if c else "black"
+            axs[0].errorbar(
+                t_bin,
+                f_bin,
+                yerr=e_bin,
+                fmt="o",
+                markerfacecolor="white",
+                markeredgecolor=markeredge,
+                label=f"{band} (RMS: {rms_data:.2f} ppt, {rms_bin:.2f} ppt/{self.bin_minutes}min)",
+                capsize=2,
+                zorder=20,
+                **kwargs,
+            )
+
+        if times_df is not None and not times_df.empty:
+            for i, f in zip(times_df["init_time"], times_df["final_time"]):
+                axs[0].axvline(
+                    i - t0, color="gray", linestyle="--", linewidth=0.8, alpha=0.7
+                )
+                axs[0].axvline(
+                    f - t0, color="gray", linestyle="--", linewidth=0.8, alpha=0.7
+                )
+
+        axs[0].set_ylabel("Relative Flux")
+        axs[0].grid(ls=":", zorder=0, alpha=0.5)
+
+        # Legend position
+        f_med = np.nanmedian(df_first[flux_col])
+        f_std = np.nanstd(df_first[flux_col])
+        tr_mask = df_first[flux_col] < (f_med - 1.5 * f_std)
+        if np.sum(tr_mask) > 0:
+            tr_time_center = np.nanmean((df_first[time_col].values - t0)[tr_mask])
+            loc_choice = "lower right" if tr_time_center < time_mid else "lower left"
+        else:
+            loc_choice = "lower left"
+
+        axs[0].legend(loc=loc_choice, fontsize=9)
+
+        panel_vars = [
+            (1, "AIRMASS", "AIRMASS", False),
+            (2, "Width_T1", "Width_T1 [Pixels]", False),
+            (3, "tot_C_cnts", "Total Comp. Counts", False),
+            (4, "Sky/Pixel_T1", "Sky/Pixel_T1", False),
+        ]
+
+        for idx, col, ylabel, do_legend in panel_vars:
+            for band, df in data.items():
+                if (
+                    idx == 1
+                    and band not in ("gp", "g")
+                    and ("gp" in data or "g" in data)
+                ):
+                    continue
+
+                t = df[time_col].values - t0
+                y = df[col]
+
+                c = self._get_band_color(band)
+                if idx == 1:
+                    c = "darkslateblue"
+                kwargs = {}
+                if c:
+                    kwargs["color"] = c
+
+                rms = self._calc_rms_ppt(y)
+                label_text = (
+                    f"{band} (RMS: {rms:.2f} ppt)" if do_legend else "_nolegend_"
+                )
+
+                axs[idx].plot(t, y, ".", alpha=0.5, label=label_text, ms=4, **kwargs)
+                axs[idx].grid(ls=":", zorder=0, alpha=0.5)
+            axs[idx].set_ylabel(ylabel)
+            if do_legend:
+                axs[idx].legend(loc="upper right", fontsize=8)
+
+        # Panel 5: Centroid Shift
+        time_xy = df_first["BJD_TDB"].values - t0
+        x_fits = df_first["X(FITS)_T1"]
+        x_rel = x_fits - x_fits.iloc[0]
+        axs[5].plot(
+            time_xy,
+            x_rel,
+            ".",
+            color="m",
+            alpha=0.6,
+            label=r"X",
+            ms=6,
+            fillstyle="none",
+        )
+
+        y_fits = df_first["Y(FITS)_T1"]
+        y_rel = y_fits - y_fits.iloc[0]
+        axs[5].plot(
+            time_xy,
+            y_rel,
+            "^",
+            color="limegreen",
+            alpha=0.6,
+            label=r"Y",
+            ms=3,
+            fillstyle="none",
+        )
+
+        axs[5].set_ylabel(r"Centroid shift [pixels]")
+        axs[5].set_xlabel(r"BJD$_{TDB}$ - " + f"{t0:.2f}")
+        axs[5].legend(loc="best", fontsize=10)
+        axs[5].grid(ls=":", alpha=0.5)
 
         out_folder.mkdir(parents=True, exist_ok=True)
-        out_file: Path = out_folder / f"{obj}_{date}_{label_value}_lightcurve.png"
-        fig.savefig(out_file, dpi=300)
+        out_file: Path = out_folder / f"{obj}_{date}_PROFE_lc.pdf"
+        fig.savefig(out_file, format="pdf", bbox_inches="tight")
         plt.close(fig)
+        self.logger.info(f"Plot: {out_file}, saved")
+
+    def _create_lightcurves_plot(
+        self,
+        obj: str,
+        date: str,
+        data: Dict,
+        times_df: Optional[DataFrame],
+        out_folder: Path,
+    ) -> None:
+        mpl.rcParams.update({"font.family": "serif", "font.size": 14})
+        n_bands = len(data)
+        if n_bands == 0:
+            return
+
+        fig_lc, axs_lc = plt.subplots(
+            n_bands,
+            1,
+            figsize=(6, 3 * n_bands + 1),
+            sharex=True,
+            gridspec_kw={"hspace": 0.0},
+        )
+        if n_bands == 1:
+            axs_lc = [axs_lc]
+
+        time_col = "BJD_TDB"
+        flux_col = "rel_flux_T1"
+        err_col = "rel_flux_err_T1"
+
+        first_band = list(data.keys())[0]
+        t0 = data[first_band][time_col].values[0]
+
+        for i, (band, df) in enumerate(data.items()):
+            t = df[time_col].values - t0
+            f = df[flux_col].values / np.median(df[flux_col].values)
+            e = df[err_col].values / np.median(df[flux_col].values)
+
+            c = self._get_band_color(band)
+            kwargs = {}
+            if c:
+                kwargs["color"] = c
+
+            axs_lc[i].errorbar(
+                t,
+                f,
+                yerr=e,
+                fmt=".",
+                alpha=0.07,
+                elinewidth=0.5,
+                label="_nolegend_",
+                **kwargs,
+            )
+
+            t_bin, f_bin, e_bin = self._bin_data(t, f, e, 6)
+
+            markeredge = c if c else "black"
+            axs_lc[i].errorbar(
+                t_bin,
+                f_bin,
+                yerr=e_bin,
+                fmt="o",
+                markerfacecolor="white",
+                markeredgecolor=markeredge,
+                label=f"{band} ",
+                capsize=2,
+                ms=5,
+                **kwargs,
+            )
+
+            axs_lc[i].set_ylabel("Relative Flux")
+            axs_lc[i].legend(loc="lower right", fontsize=10)
+            axs_lc[i].grid(ls=":", zorder=0, alpha=0.5)
+
+        axs_lc[-1].set_xlabel(r"BJD$_{{TDB}}$ - " + f"{t0:.2f}")
+
+        out_folder.mkdir(parents=True, exist_ok=True)
+        out_file: Path = out_folder / f"{obj}_{date}_lc_{n_bands}panels.pdf"
+        plt.savefig(out_file, format="pdf", bbox_inches="tight")
+        plt.close(fig_lc)
         self.logger.info(f"Plot: {out_file}, saved")
 
     def run(self) -> None:
@@ -350,62 +519,45 @@ class LightCurvePlotter:
                     self.logger.info(f"Skipping {obj},{date}. Already processed")
                     continue
 
-                tbls: list = self._obtain_tbls(date_folder)
-                if not tbls:
-                    self.logger.warning(f"No TBLs in {date_folder} — Skipping")
+                meas_files: list = self._obtain_measurements(date_folder)
+                if not meas_files:
+                    self.logger.warning(f"No measurements in {date_folder} — Skipping")
                     continue
 
                 # Load data
                 data: Dict = {}
-                for f in tbls:
-                    parts: list = f.stem.split("_")
-                    if len(parts) != 3:
-                        self.logger.warning(f"Invalid name {f.name} — Ignoring")
+                for f in meas_files:
+                    df: DataFrame
+                    if f.suffix == ".tbl":
+                        df = pd.read_csv(
+                            f, sep=r"\t+", engine="python", encoding="latin1"
+                        )
+                    elif f.suffix == ".csv":
+                        df = pd.read_csv(f, encoding="latin1")
+                    else:
                         continue
-                    date_str, filtr, method = parts
-                    df: DataFrame = pd.read_table(f)
-                    data.setdefault(method, {})[filtr] = df
+
+                    stem = f.stem
+                    if stem.endswith("_gp") or stem.endswith("_g"):
+                        filtr = "gp"
+                    elif stem.endswith("_rp") or stem.endswith("_r"):
+                        filtr = "rp"
+                    elif stem.endswith("_ip") or stem.endswith("_i"):
+                        filtr = "ip"
+                    else:
+                        filtr = stem.split("_")[-1]
+
+                    data[filtr] = df
 
                 times: DataFrame | None = self._load_times(date_folder)
 
-                # Light curves plots per method
+                # Plots
                 out_base: Path = obj_folder / "plots" / date
-                for method, filt_dict in data.items():
-                    datasets_m: dict = {
-                        f: (df, {"g": "blue", "r": "green", "i": "red"}.get(f, "black"))
-                        for f, df in filt_dict.items()
-                    }
-                    self._create_plot(
-                        obj,
-                        date,
-                        datasets_m,
-                        times,
-                        out_base / "lcs_method",
-                        label_type="",
-                        label_value=method,
-                    )
+                self._create_multipanel_plot(obj, date, data, times, out_base)
+                self._create_lightcurves_plot(obj, date, data, times, out_base)
 
-                # Light curves plots per filter
-                all_filts: set = {f for d in data.values() for f in d}
-                for filtr in all_filts:
-                    methods: list = [m for m, d in data.items() if filtr in d]
-                    cmap: Colormap = plt.get_cmap("tab10", len(methods))
-                    datasets_f: Dict = {
-                        m: (data[m][filtr], to_hex(cmap(i)))
-                        for i, m in enumerate(methods)
-                    }
+                # CSV saving
+                lcs_folder: Path = lcs_root / date
+                self._save_csv(lcs_folder, data)
 
-                    self._create_plot(
-                        obj,
-                        date,
-                        datasets_f,
-                        times,
-                        out_base / "lcs_filter",
-                        label_type="",
-                        label_value=filtr,
-                    )
-
-                for method, filt_dict in data.items():
-                    lcs_folder: Path = lcs_root / date
-                    self._save_method_csv(lcs_folder, method, filt_dict)
                 self._mark_processed(obj, date)
