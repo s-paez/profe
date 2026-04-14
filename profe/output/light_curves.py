@@ -154,6 +154,9 @@ class LightCurvePlotter:
             for i, f in zip(times_df["init_time"], times_df["final_time"]):
                 mask |= (time >= i) & (time <= f)
             selected = data[mask]
+            
+            if len(selected) == 0:
+                selected = data
         else:
             selected = data
         return self._calc_rms_ppt(pd.Series(selected))
