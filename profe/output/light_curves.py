@@ -23,8 +23,6 @@ from typing import Any, Dict, Optional, Sequence, Set
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.colors import to_hex
-from matplotlib.pyplot import Colormap
 from numpy import ndarray
 from numpy.typing import NDArray
 from pandas import DataFrame, Series
@@ -128,17 +126,19 @@ class LightCurvePlotter:
             df_new_tf.to_csv(folder / "times" / "times.csv", index=False)
             return None
 
-    def _obtain_tbls(self, folder: Path) -> list[Path]:
+    def _obtain_measurements(self, folder: Path) -> list[Path]:
         """
-        List all AIJ measurement table files in a folder.
+        List all AIJ measurement table files in a folder (.tbl or .csv).
 
         Args:
             folder (Path): Path to a `measurements/` directory.
 
         Returns:
-            list[Path]: Paths to all `.tbl` files in the folder.
+            list[Path]: Paths to all `.tbl` and `.csv` files in the folder.
         """
-        return [f for f in folder.glob("*.tbl")]
+        return [
+            f for f in folder.iterdir() if f.is_file() and f.suffix in (".tbl", ".csv")
+        ]
 
     def _calculate_rms(
         self,
@@ -350,62 +350,41 @@ class LightCurvePlotter:
                     self.logger.info(f"Skipping {obj},{date}. Already processed")
                     continue
 
-                tbls: list = self._obtain_tbls(date_folder)
-                if not tbls:
-                    self.logger.warning(f"No TBLs in {date_folder} — Skipping")
+                meas_files: list = self._obtain_measurements(date_folder)
+                if not meas_files:
+                    self.logger.warning(f"No measurements in {date_folder} — Skipping")
                     continue
 
                 # Load data
                 data: Dict = {}
-                for f in tbls:
-                    parts: list = f.stem.split("_")
-                    if len(parts) != 3:
-                        self.logger.warning(f"Invalid name {f.name} — Ignoring")
+                for f in meas_files:
+                    df: DataFrame
+                    if f.suffix == ".tbl":
+                        df = pd.read_csv(f, sep=r"\t+", engine="python")
+                    elif f.suffix == ".csv":
+                        df = pd.read_csv(f)
+                    else:
                         continue
-                    date_str, filtr, method = parts
-                    df: DataFrame = pd.read_table(f)
-                    data.setdefault(method, {})[filtr] = df
 
-                times: DataFrame | None = self._load_times(date_folder)
+                    stem = f.stem
+                    if stem.endswith("_gp") or stem.endswith("_g"):
+                        filtr = "gp"
+                    elif stem.endswith("_rp") or stem.endswith("_r"):
+                        filtr = "rp"
+                    elif stem.endswith("_ip") or stem.endswith("_i"):
+                        filtr = "ip"
+                    else:
+                        filtr = stem.split("_")[-1]
 
-                # Light curves plots per method
-                out_base: Path = obj_folder / "plots" / date
-                for method, filt_dict in data.items():
-                    datasets_m: dict = {
-                        f: (df, {"g": "blue", "r": "green", "i": "red"}.get(f, "black"))
-                        for f, df in filt_dict.items()
-                    }
-                    self._create_plot(
-                        obj,
-                        date,
-                        datasets_m,
-                        times,
-                        out_base / "lcs_method",
-                        label_type="",
-                        label_value=method,
-                    )
+                    data[filtr] = df
 
-                # Light curves plots per filter
-                all_filts: set = {f for d in data.values() for f in d}
-                for filtr in all_filts:
-                    methods: list = [m for m, d in data.items() if filtr in d]
-                    cmap: Colormap = plt.get_cmap("tab10", len(methods))
-                    datasets_f: Dict = {
-                        m: (data[m][filtr], to_hex(cmap(i)))
-                        for i, m in enumerate(methods)
-                    }
+                # times: DataFrame | None = self._load_times(date_folder)
 
-                    self._create_plot(
-                        obj,
-                        date,
-                        datasets_f,
-                        times,
-                        out_base / "lcs_filter",
-                        label_type="",
-                        label_value=filtr,
-                    )
+                # Light curves plots per method and filter will be rewritten in Fase 4
+                # out_base: Path = obj_folder / "plots" / date
 
-                for method, filt_dict in data.items():
-                    lcs_folder: Path = lcs_root / date
-                    self._save_method_csv(lcs_folder, method, filt_dict)
+                # CSV saving will be rewritten in Fase 3
+                lcs_folder: Path = lcs_root / date
+                self._save_method_csv(lcs_folder, "all", data)
+
                 self._mark_processed(obj, date)
