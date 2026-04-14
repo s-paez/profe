@@ -6,6 +6,7 @@ longer than 10 seconds require hot-pixel correction. This module implements
 that correction using a median filter with a 3x3-pixel window.
 """
 
+import datetime
 import logging
 import os
 from multiprocessing import Pool, cpu_count
@@ -82,7 +83,7 @@ class MedianFilter:
 
         try:
             already_filtered = False
-            raw_history_msg = (
+            raw_history_base = (
                 f"PROFE: raw image, {window_size}x{window_size} median copy exists"
             )
 
@@ -92,7 +93,7 @@ class MedianFilter:
                 # Verify if history exists
                 if "HISTORY" in header:
                     for hist in header["HISTORY"]:
-                        if raw_history_msg in str(hist):
+                        if raw_history_base in str(hist):
                             already_filtered = True
                             break
 
@@ -107,8 +108,11 @@ class MedianFilter:
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
                 filtered_header = header.copy()
+                current_time = datetime.datetime.now(datetime.timezone.utc).strftime(
+                    "%Y-%m-%d %H:%M:%S UT"
+                )
                 filtered_header.add_history(
-                    f"{window_size}x{window_size} median filter applied by PROFE"
+                    f"{window_size}x{window_size} median filter applied by PROFE at {current_time}"
                 )
 
                 hdu: fits.PrimaryHDU = fits.PrimaryHDU(
@@ -117,7 +121,7 @@ class MedianFilter:
                 hdu.writeto(output_path, overwrite=True)
 
                 # Add history to the raw image (opened in mode='update')
-                header.add_history(raw_history_msg)
+                header.add_history(f"{raw_history_base} at {current_time}")
 
                 logger.info(f"{image_path}: Corrected with median filter")
             return image_path
