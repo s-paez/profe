@@ -8,6 +8,9 @@ time intervals provided via a `times.csv` file.
 
 The analysis follows the time-averaging method proposed by Cubillos et al. (2017)
 using the MC3 package.
+
+Already-processed (object, date) pairs are detected by checking whether the
+expected output directory contains PNG files, so no external state file is needed.
 """
 
 import logging
@@ -30,6 +33,9 @@ class TimeAveragingPlotter:
     computing RMS-vs.-bin-size curves for each filter and photometric method. The
     results are plotted and saved to disk, with dashed lines indicating the expected
     white-noise scaling.
+
+    Already-processed pairs are detected by the presence of output PNGs in the
+    `time-avg` directory.
     """
 
     def __init__(self) -> None:
@@ -51,6 +57,23 @@ class TimeAveragingPlotter:
         self.n_processes = cpu_count()
         self.log_dir = self.base_dir / "logs"
         self.logger = logging.getLogger(__name__)
+
+    def _is_processed(self, obj_dir: Path, date_name: str) -> bool:
+        """
+        Check whether time-averaging outputs already exist for (object, date).
+
+        Args:
+            obj_dir (Path): Path to the object directory.
+            date_name (str): Observation date folder name.
+
+        Returns:
+            bool: True if the time-avg directory exists and contains at
+                least one PNG file.
+        """
+        time_avg_dir = obj_dir / "plots" / date_name / "time-avg"
+        if not time_avg_dir.is_dir():
+            return False
+        return any(time_avg_dir.glob("*.png"))
 
     def load_times_file(self, date_dir: Path) -> DataFrame | None:
         """
@@ -210,6 +233,11 @@ class TimeAveragingPlotter:
                     continue
                 msg = f"Processing {obj_dir.name} Date {date_dir.name}"
                 self.logger.info(msg)
+
+                if self._is_processed(obj_dir, date_dir.name):
+                    msg = f"({obj_dir.name}, {date_dir.name}) already processed"
+                    self.logger.info(msg)
+                    continue
 
                 times_df: DataFrame | None = self.load_times_file(date_dir)
 
