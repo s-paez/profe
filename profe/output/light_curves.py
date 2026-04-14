@@ -182,16 +182,15 @@ class LightCurvePlotter:
                 rms_txt = f" (RMS:{rms:.4f})"
         return rms, rms_txt
 
-    def _save_method_csv(self, date_folder: Path, method: str, filt_dict: Dict) -> None:
+    def _save_csv(self, date_folder: Path, filt_dict: Dict) -> None:
         """
-        Save a normalized multiband light curve CSV for a processing method.
+        Save a normalized multiband light curve CSV.
 
         Normalizes flux and error columns for each filter by the median flux, then
         merges all filters side by side into a single CSV.
 
         Args:
             date_folder (Path): Output directory for the CSV.
-            method (str): Processing method name (used in filename).
             filt_dict (dict[str, DataFrame]): Mapping of filter name to its light
                 curve DataFrame. Each DataFrame must have 'BJD_TDB', 'rel_flux_T1',
                 and 'rel_flux_err_T1' columns.
@@ -212,7 +211,7 @@ class LightCurvePlotter:
             frames.append(tmp)
         df_merged: DataFrame = pd.concat(frames, axis=1)
         os.makedirs(date_folder, exist_ok=True)
-        out_csv: Path = date_folder / f"{method}_norm_gri_lcs.csv"
+        out_csv: Path = date_folder / "norm_gri_lcs.csv"
         df_merged.to_csv(out_csv, index=False)
         msg: str = f"Saved normalized CSV: {out_csv}"
         self.logger.info(msg)
@@ -383,8 +382,8 @@ class LightCurvePlotter:
                 # Light curves plots per method and filter will be rewritten in Fase 4
                 # out_base: Path = obj_folder / "plots" / date
 
-                # CSV saving will be rewritten in Fase 3
+                # CSV saving
                 lcs_folder: Path = lcs_root / date
-                self._save_method_csv(lcs_folder, "all", data)
+                self._save_csv(lcs_folder, data)
 
                 self._mark_processed(obj, date)
