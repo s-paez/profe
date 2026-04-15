@@ -104,10 +104,12 @@ class ExofopPlotter:
         else:
             data = pd.read_csv(file_to_read, encoding="latin1")
 
-        fits_dir: Path = obj_dir / date_folder.name
-        fits_cands: list = list(fits_dir.rglob("*.fit*"))
+        fits_dir: Path = self.corrected / obj_dir.name / f"calibrated_{band}"
+        fits_cands: list[Path] = list(fits_dir.rglob("*_out.fit*"))
         if not fits_cands:
-            self.logger.warning(f"No FITS in {fits_dir}. Skipping aperture plot.")
+            self.logger.warning(
+                f"No calibrated FITS in {fits_dir}. Skipping aperture plot."
+            )
             return
 
         with fits.open(fits_cands[0]) as hdul:
