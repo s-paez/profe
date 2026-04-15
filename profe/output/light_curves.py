@@ -212,6 +212,7 @@ class LightCurvePlotter:
         data: Dict,
         times_df: Optional[DataFrame],
         out_folder: Path,
+        exofop_dir: Path,
     ) -> None:
         mpl.rcParams.update({"font.family": "serif", "font.size": 14})
         if not data:
@@ -376,8 +377,14 @@ class LightCurvePlotter:
         out_folder.mkdir(parents=True, exist_ok=True)
         out_file: Path = out_folder / f"{obj}_{date}_PROFE_lc.pdf"
         fig.savefig(out_file, format="pdf", bbox_inches="tight")
+
+        exofop_dir.mkdir(parents=True, exist_ok=True)
+        png_file: Path = exofop_dir / f"{obj}_{date}_PROFE_lc.png"
+        fig.savefig(png_file, format="png", dpi=300, bbox_inches="tight")
+
         plt.close(fig)
         self.logger.info(f"Plot: {out_file}, saved")
+        self.logger.info(f"Plot: {png_file}, saved")
 
     def _create_lightcurves_plot(
         self,
@@ -386,6 +393,7 @@ class LightCurvePlotter:
         data: Dict,
         times_df: Optional[DataFrame],
         out_folder: Path,
+        exofop_dir: Path,
     ) -> None:
         mpl.rcParams.update({"font.family": "serif", "font.size": 14})
         n_bands = len(data)
@@ -455,8 +463,14 @@ class LightCurvePlotter:
         out_folder.mkdir(parents=True, exist_ok=True)
         out_file: Path = out_folder / f"{obj}_{date}_lc_{n_bands}panels.pdf"
         plt.savefig(out_file, format="pdf", bbox_inches="tight")
+
+        exofop_dir.mkdir(parents=True, exist_ok=True)
+        png_file: Path = exofop_dir / f"{obj}_{date}_lc_{n_bands}panels.png"
+        plt.savefig(png_file, format="png", dpi=300, bbox_inches="tight")
+
         plt.close(fig_lc)
         self.logger.info(f"Plot: {out_file}, saved")
+        self.logger.info(f"Plot: {png_file}, saved")
 
     def run(self) -> None:
         """
@@ -525,8 +539,13 @@ class LightCurvePlotter:
 
                 # Plots
                 out_base: Path = obj_folder / "plots" / date
-                self._create_multipanel_plot(obj, date, data, times, out_base)
-                self._create_lightcurves_plot(obj, date, data, times, out_base)
+                exofop_base: Path = obj_folder / "exofop" / date
+                self._create_multipanel_plot(
+                    obj, date, data, times, out_base, exofop_base
+                )
+                self._create_lightcurves_plot(
+                    obj, date, data, times, out_base, exofop_base
+                )
 
                 # CSV saving
                 lcs_folder: Path = lcs_root / date
