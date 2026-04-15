@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from astropy.io import fits
+from astropy.visualization import ZScaleInterval
 from matplotlib.patches import Circle, Wedge
 from pandas import DataFrame
 from photutils.profiles import RadialProfile
@@ -139,8 +140,11 @@ class ExofopPlotter:
 
         # Aperture visualization
         fig, ax = plt.subplots(figsize=(6, 6))
-        vmin, vmax = np.nanpercentile(vis_data, (5, 95))
-        ax.imshow(vis_data, vmin=vmin, vmax=vmax)
+
+        zscale = ZScaleInterval()
+        vmin, vmax = zscale.get_limits(vis_data)
+
+        ax.imshow(vis_data, vmin=vmin, vmax=vmax, origin="lower")
         for name, (x, y) in stars.items():
             if name == "T1":
                 color = "limegreen"
