@@ -44,27 +44,41 @@ class ExofopPlotter:
         self.corrected = self.base_dir / "corrected_3x3"
         self.logger = logging.getLogger(__name__)
 
-    def _is_processed(self, obj_dir: Path, date_name: str) -> bool:
+    def _is_processed(
+        self, obj_dir: Path, date_name: str, target_name: str, band: str
+    ) -> bool:
         """
-        Check whether EXOFOP outputs already exist for (object, date).
+        Check whether EXOFOP outputs already exist for (object, date, band).
 
         Args:
             obj_dir (Path): Path to the object directory.
             date_name (str): Observation date folder name.
+            target_name (str): The object target name.
+            band (str): The measurement band.
 
         Returns:
             bool: True if the aperture plot PNG already exists.
         """
-        expected = obj_dir / "exofop" / date_name / f"{date_name}_aperture.png"
+        expected = (
+            obj_dir
+            / "exofop"
+            / date_name
+            / f"{target_name}_{date_name}_{band}_apertures.png"
+        )
         return expected.exists()
 
     def _generate_plots(
-        self, obj_dir: Path, date_folder: Path, target_name: str
+        self,
+        obj_dir: Path,
+        date_folder: Path,
+        target_name: str,
+        file_to_read: Path,
+        band: str,
     ) -> None:
         """
-        Generate aperture-visualization and radial-profile plots for one date.
+        Generate aperture-visualization and radial-profile plots for one date and band.
 
-        Reads centroid and aperture parameters from the date’s `.tbl` file, selects a
+        Reads centroid and aperture parameters from `file_to_read`, selects a
         representative FITS image for background visualization, and produces:
 
             - Aperture visualization (source radius and sky annulus overlaid).
@@ -76,22 +90,12 @@ class ExofopPlotter:
             obj_dir (Path): Path to the object directory.
             date_folder (Path): Path to the date-specific `measurements/` folder.
             target_name (str): Name used for plot titles and file naming.
+            file_to_read (Path): Path to the correct band measurement file.
+            band (str): The corresponding physical band.
         """
         exofop_dir: Path = obj_dir / "exofop" / date_folder.name
         exofop_dir.mkdir(parents=True, exist_ok=True)
 
-        meas_files: list[Path] = [
-            f
-            for f in date_folder.iterdir()
-            if f.is_file()
-            and not f.name.startswith(".")
-            and f.suffix in (".tbl", ".csv")
-        ]
-        if not meas_files:
-            self.logger.info(f"No measurements in {date_folder}. Skipping.")
-            return
-
-        file_to_read = meas_files[0]
         data: DataFrame
         if file_to_read.suffix == ".tbl":
             data = pd.read_csv(
@@ -155,8 +159,10 @@ class ExofopPlotter:
                     linewidth=0.7,
                 )
             )
-        ax.set_title(f"{target_name} Aperture Visualization")
-        ap_path: Path = exofop_dir / f"{date_folder.name}_aperture.png"
+        ax.set_title(f"{target_name} ({band}) Aperture Visualization")
+        ap_path: Path = (
+            exofop_dir / f"{target_name}_{date_folder.name}_{band}_apertures.png"
+        )
         plt.savefig(ap_path, dpi=300)
         plt.close(fig)
         self.logger.info(f"Saved aperture plot at {ap_path}")
@@ -173,9 +179,11 @@ class ExofopPlotter:
         ax2.axvline(sky_max, color="red", label="Sky Max")
         ax2.set_xlabel("Radius [pixels]")
         ax2.set_ylabel("Counts")
-        ax2.set_title(f"{target_name} Radial Profile")
+        ax2.set_title(f"{target_name} ({band}) Radial Profile")
         ax2.legend()
-        rp_path: Path = exofop_dir / f"{date_folder.name}_radial_profile.png"
+        rp_path: Path = (
+            exofop_dir / f"{target_name}_{date_folder.name}_{band}_radial_profile.png"
+        )
         plt.savefig(rp_path, dpi=300)
         plt.close(fig2)
         self.logger.info(f"Saved radial profile plot at {rp_path}")
@@ -212,13 +220,27 @@ class ExofopPlotter:
         for date_folder in sorted(measurements_root.iterdir()):
             if not date_folder.is_dir():
                 continue
-            if self._is_processed(obj_dir, date_folder.name):
-                self.logger.info(
-                    f"({obj_dir.name}, {date_folder.name}) already processed"
-                )
+
+            meas_files: list[Path] = [
+                f
+                for f in date_folder.iterdir()
+                if f.is_file()
+                and not f.name.startswith(".")
+                and f.suffix in (".tbl", ".csv")
+            ]
+            if not meas_files:
+                self.logger.info(f"No measurements in {date_folder.name}. Skipping.")
                 continue
 
-            self._generate_plots(obj_dir, date_folder, target)
+            for file_to_read in meas_files:
+                band: str = file_to_read.stem.split("_")[-1]
+                if self._is_processed(obj_dir, date_folder.name, target, band):
+                    self.logger.info(
+                        f"({obj_dir.name}, {date_folder.name}, {band}) already processed"
+                    )
+                    continue
+
+                self._generate_plots(obj_dir, date_folder, target, file_to_read, band)
 
     def run(self) -> None:
         """
