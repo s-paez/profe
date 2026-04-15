@@ -104,7 +104,9 @@ class ExofopPlotter:
         else:
             data = pd.read_csv(file_to_read, encoding="latin1")
 
-        fits_dir: Path = self.corrected / obj_dir.name / f"calibrated_{band}"
+        fits_dir: Path = (
+            obj_dir / "corrected_3x3" / date_folder.name / f"calibrated_{band}"
+        )
         fits_cands: list[Path] = list(fits_dir.rglob("*_out.fit*"))
         if not fits_cands:
             self.logger.warning(
