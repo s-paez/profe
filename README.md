@@ -36,6 +36,7 @@ Dependencies defined in `pyproject.toml`:
 * mc3 ($\geq 3.2.1$, $<4.0.0$)
 * photutils ($\geq 2.2.0$, $<3.0.0$)
 * numpy ($\geq 1.24$, $<2.0$)
+* astroquery ($\geq 0.4.7$)
 
 ---
 

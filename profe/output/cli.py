@@ -21,6 +21,7 @@ import os
 
 # Import the processing classes
 from .alt_az_centroid import AltAzGuidingPlotter
+from .astrometry_out import AstrometrySolver
 from .correlated_noise import TimeAveragingPlotter
 from .exofop_out import ExofopPlotter
 from .light_curves import LightCurvePlotter
@@ -66,6 +67,9 @@ def run_output() -> None:
 
     exofop_plotter: ExofopPlotter = ExofopPlotter()
     exofop_plotter.run()
+
+    astrometry_solver: AstrometrySolver = AstrometrySolver()
+    astrometry_solver.run()
 
 
 if __name__ == "__main__":
