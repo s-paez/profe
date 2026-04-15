@@ -140,11 +140,20 @@ class ExofopPlotter:
         vmin, vmax = np.nanpercentile(vis_data, (5, 95))
         ax.imshow(vis_data, vmin=vmin, vmax=vmax)
         for name, (x, y) in stars.items():
+            if name == "T1":
+                color = "limegreen"
+            elif name.startswith("C"):
+                color = "red"
+            elif name.startswith("T") and name != "T1":
+                color = "orange"
+            else:
+                color = "white"
+
             ax.add_patch(
                 Circle(
                     (x, y),
                     radius=source,
-                    edgecolor="springgreen",
+                    edgecolor=color,
                     facecolor="none",
                     lw=1,
                 )
@@ -157,7 +166,7 @@ class ExofopPlotter:
                     theta2=360,
                     width=sky_max - sky_min,
                     facecolor="none",
-                    edgecolor="red",
+                    edgecolor=color,
                     linewidth=0.7,
                 )
             )
