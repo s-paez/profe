@@ -31,6 +31,8 @@ import pandas as pd
 from numpy.typing import NDArray
 from pandas import DataFrame, Series
 
+from .naming import exofop_path, normalize_band
+
 
 class ComparisonStarsPlotter:
     """
@@ -73,8 +75,8 @@ class ComparisonStarsPlotter:
         Returns:
             bool: True if the output PNG already exists.
         """
-        expected = (
-            obj_folder / "exofop" / date / f"{obj}_{date}_{band}_comparison_stars.png"
+        expected = exofop_path(
+            obj_folder, date, obj, band, "_compstar-lightcurves", ".png"
         )
         return expected.exists()
 
@@ -189,7 +191,7 @@ class ComparisonStarsPlotter:
         band: str,
         df: DataFrame,
         times_df: Optional[DataFrame],
-        exofop_dir: Path,
+        obj_folder: Path,
     ) -> None:
         """
         Create a 6-panel comparison star plot for one band.
@@ -360,8 +362,10 @@ class ComparisonStarsPlotter:
         axs[5].grid(ls=":", alpha=0.5)
 
         # ── Save ─────────────────────────────────────────────────────────
-        exofop_dir.mkdir(parents=True, exist_ok=True)
-        out_file: Path = exofop_dir / f"{obj}_{date}_{band}_comparison_stars.png"
+        out_file: Path = exofop_path(
+            obj_folder, date, obj, band, "_compstar-lightcurves", ".png"
+        )
+        out_file.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(out_file, format="png", dpi=300, bbox_inches="tight")
         plt.close(fig)
         self.logger.info(f"Plot: {out_file}, saved")
@@ -413,14 +417,7 @@ class ComparisonStarsPlotter:
                         continue
 
                     stem = f.stem
-                    if stem.endswith("_gp") or stem.endswith("_g"):
-                        band = "gp"
-                    elif stem.endswith("_rp") or stem.endswith("_r"):
-                        band = "rp"
-                    elif stem.endswith("_ip") or stem.endswith("_i"):
-                        band = "ip"
-                    else:
-                        band = stem.split("_")[-1]
+                    band = normalize_band(stem.split("_")[-1])
 
                     if self._is_processed(obj_folder, obj, date, band):
                         self.logger.info(
@@ -429,7 +426,6 @@ class ComparisonStarsPlotter:
                         )
                         continue
 
-                    exofop_dir: Path = obj_folder / "exofop" / date
                     self._create_comparison_plot(
-                        obj, date, band, df, times_df, exofop_dir
+                        obj, date, band, df, times_df, obj_folder
                     )
