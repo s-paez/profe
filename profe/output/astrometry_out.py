@@ -18,7 +18,7 @@ import logging
 import warnings
 from pathlib import Path
 
-from .naming import exofop_path
+from .naming import exofop_path, get_exofop_id
 
 import numpy as np
 from astropy.convolution import convolve
@@ -86,7 +86,8 @@ class AstrometrySolver:
     def _is_processed(
         self, obj_dir: Path, date_name: str, target_name: str, band: str
     ) -> bool:
-        expected = exofop_path(obj_dir, date_name, target_name, band, "_WCS", ".fits")
+        exofop_obj = get_exofop_id(target_name)
+        expected = exofop_path(obj_dir, date_name, exofop_obj, band, "_WCS", ".fits")
         return expected.exists()
 
     def _detect_sources(self, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -288,8 +289,9 @@ class AstrometrySolver:
                     continue
 
                 fits_to_solve = fits_cands[0]
+                exofop_obj = get_exofop_id(target)
                 save_path = exofop_path(
-                    obj_dir, date_folder.name, target, band, "_WCS", ".fits"
+                    obj_dir, date_folder.name, exofop_obj, band, "_WCS", ".fits"
                 )
                 save_path.parent.mkdir(parents=True, exist_ok=True)
 

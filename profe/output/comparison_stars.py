@@ -31,7 +31,7 @@ import pandas as pd
 from numpy.typing import NDArray
 from pandas import DataFrame, Series
 
-from .naming import exofop_path, normalize_band
+from .naming import exofop_path, exofop_title, get_exofop_id, normalize_band
 
 
 class ComparisonStarsPlotter:
@@ -75,8 +75,9 @@ class ComparisonStarsPlotter:
         Returns:
             bool: True if the output PNG already exists.
         """
+        exofop_obj = get_exofop_id(obj)
         expected = exofop_path(
-            obj_folder, date, obj, band, "_compstar-lightcurves", ".png"
+            obj_folder, date, exofop_obj, band, "_compstar-lightcurves", ".png"
         )
         return expected.exists()
 
@@ -310,7 +311,9 @@ class ComparisonStarsPlotter:
         axs[0].set_ylabel("Relative Flux + Offset")
         axs[0].grid(ls=":", zorder=0, alpha=0.5)
         axs[0].legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=8)
-        axs[0].set_title(f"{obj} ({date}) [{band}] — Comparison Stars")
+        exofop_obj = get_exofop_id(obj)
+        title_str = exofop_title(exofop_obj, date, band)
+        axs[0].set_title(title_str)
 
         # ── Panels 1–4: Diagnostic variables ─────────────────────────────
         panel_vars = [
@@ -362,8 +365,9 @@ class ComparisonStarsPlotter:
         axs[5].grid(ls=":", alpha=0.5)
 
         # ── Save ─────────────────────────────────────────────────────────
+        exofop_obj = get_exofop_id(obj)
         out_file: Path = exofop_path(
-            obj_folder, date, obj, band, "_compstar-lightcurves", ".png"
+            obj_folder, date, exofop_obj, band, "_compstar-lightcurves", ".png"
         )
         out_file.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(out_file, format="png", dpi=300, bbox_inches="tight")

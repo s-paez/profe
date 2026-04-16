@@ -24,7 +24,7 @@ from matplotlib.patches import Circle, Wedge
 from pandas import DataFrame
 from photutils.profiles import RadialProfile
 
-from .naming import exofop_path
+from .naming import exofop_path, exofop_title, get_exofop_id
 
 
 class ExofopPlotter:
@@ -62,7 +62,8 @@ class ExofopPlotter:
         Returns:
             bool: True if the aperture plot PNG already exists.
         """
-        expected = exofop_path(obj_dir, date_name, target_name, band, "_field", ".png")
+        exofop_obj = get_exofop_id(target_name)
+        expected = exofop_path(obj_dir, date_name, exofop_obj, band, "_field", ".png")
         return expected.exists()
 
     def _generate_plots(
@@ -91,7 +92,7 @@ class ExofopPlotter:
             file_to_read (Path): Path to the correct band measurement file.
             band (str): The corresponding physical band.
         """
-        pass  # We use exofop_path instead
+        pass
 
         data: DataFrame
         if file_to_read.suffix == ".tbl":
@@ -125,6 +126,8 @@ class ExofopPlotter:
         }
 
         # Photometry parameters
+        exofop_obj = get_exofop_id(target_name)
+        title_str = exofop_title(exofop_obj, date_folder.name, band)
         source: int = int(data["Source_Radius"].iloc[0])
         sky_min: Any = data["Sky_Rad(min)"].iloc[0]
         sky_max: Any = data["Sky_Rad(max)"].iloc[0]
@@ -172,9 +175,9 @@ class ExofopPlotter:
                     linewidth=0.7,
                 )
             )
-        ax.set_title(f"{target_name} ({band}) Aperture Visualization")
+        ax.set_title(title_str, fontsize=9)
         ap_path: Path = exofop_path(
-            obj_dir, date_folder.name, target_name, band, "_field", ".png"
+            obj_dir, date_folder.name, exofop_obj, band, "_field", ".png"
         )
         ap_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(ap_path, dpi=300)
@@ -183,20 +186,20 @@ class ExofopPlotter:
 
         # Radial profile plot
         fig2, ax2 = plt.subplots(figsize=(8, 6))
-        rp.plot(ax=ax2)
-        rp.plot_error(ax=ax2)
+        rp.plot(ax=ax2, c="m")
+        rp.plot_error(ax=ax2, c="m")
         rad: Any = np.asanyarray(rp.data_radius)
         d_profile: Any = np.asanyarray(rp.data_profile)
         ax2.scatter(rad, d_profile, s=1, alpha=0.5, rasterized=True)
-        ax2.axvline(source, color="limegreen", label="Source Radius")
+        ax2.axvline(source, color="red", ls=":", label="Source Radius")
         ax2.axvline(sky_min, color="red", linestyle="--", label="Sky Min")
         ax2.axvline(sky_max, color="red", label="Sky Max")
         ax2.set_xlabel("Radius [pixels]")
         ax2.set_ylabel("Counts")
-        ax2.set_title(f"{target_name} ({band}) Radial Profile")
+        ax2.set_title(title_str, fontsize=9)
         ax2.legend()
         rp_path: Path = exofop_path(
-            obj_dir, date_folder.name, target_name, band, "_seeing-profile", ".png"
+            obj_dir, date_folder.name, exofop_obj, band, "_seeing-profile", ".png"
         )
         rp_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(rp_path, dpi=300)

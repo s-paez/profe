@@ -21,7 +21,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, Optional
 
-from .naming import exofop_path, normalize_band
+from .naming import exofop_path, exofop_title, get_exofop_id, normalize_band
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -440,6 +440,8 @@ class LightCurvePlotter:
         err_col = "rel_flux_err_T1"
         time_col = "BJD_TDB"
 
+        exofop_obj = get_exofop_id(obj)
+
         t = df[time_col].to_numpy() - t0
         med_f = float(df[flux_col].median())
         f = df[flux_col].to_numpy() / med_f
@@ -493,6 +495,8 @@ class LightCurvePlotter:
         axs[0].set_ylabel("Relative Flux")
         axs[0].grid(ls=":", zorder=0, alpha=0.5)
         axs[0].legend(loc="lower left", fontsize=9)
+        title_str = exofop_title(exofop_obj, date, band)
+        axs[0].set_title(title_str)
 
         # Panels 1-4: auxiliary variables
         panel_vars = [
@@ -542,7 +546,9 @@ class LightCurvePlotter:
         axs[5].legend(loc="best", fontsize=10)
         axs[5].grid(ls=":", alpha=0.5)
 
-        png_file: Path = exofop_path(obj_folder, date, obj, band, "_lightcurve", ".png")
+        png_file: Path = exofop_path(
+            obj_folder, date, exofop_obj, band, "_lightcurve", ".png"
+        )
         png_file.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(png_file, format="png", dpi=300, bbox_inches="tight")
         plt.close(fig)
@@ -728,8 +734,9 @@ class LightCurvePlotter:
                 for f in meas_files:
                     stem = f.stem
                     band = normalize_band(stem.split("_")[-1])
+                    exofop_obj = get_exofop_id(obj)
                     dest = exofop_path(
-                        obj_folder, date, obj, band, "_measurements", f.suffix
+                        obj_folder, date, exofop_obj, band, "_measurements", f.suffix
                     )
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(f, dest)
