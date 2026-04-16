@@ -17,8 +17,11 @@ expected output PDF exists on disk, so no external state file is needed.
 
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Dict, Optional
+
+from .naming import exofop_path, normalize_band
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -92,11 +95,10 @@ class LightCurvePlotter:
         Returns:
             list[str]: Bands whose exofop PNG is missing.
         """
-        exofop_dir = obj_folder / "exofop" / date
         return [
             b
             for b in bands
-            if not (exofop_dir / f"{obj}_{date}_PROFE_lc_{b}.png").exists()
+            if not exofop_path(obj_folder, date, obj, b, "_lightcurve", ".png").exists()
         ]
 
     def _load_times(self, folder: Path) -> DataFrame | None:
@@ -234,7 +236,7 @@ class LightCurvePlotter:
         data: Dict,
         times_df: Optional[DataFrame],
         out_folder: Path,
-        exofop_dir: Path,
+        obj_folder: Path,
     ) -> None:
         mpl.rcParams.update({"font.family": "serif", "font.size": 14})
         if not data:
@@ -257,14 +259,15 @@ class LightCurvePlotter:
 
         first_band = list(data.keys())[0]
         df_first = data[first_band]
-        t0 = df_first[time_col].values[0]
-        time_mid = np.nanmedian(df_first[time_col].values - t0)
+        t0 = float(df_first[time_col].to_numpy()[0])
+        time_mid = np.nanmedian(df_first[time_col].to_numpy() - t0)
 
         # 1. Light curve panel
         for band, df in data.items():
-            t = df[time_col].values - t0
-            f = df[flux_col].values / np.median(df[flux_col].values)
-            e = df[err_col].values / np.median(df[flux_col].values)
+            t = df[time_col].to_numpy() - t0
+            med_f = float(df[flux_col].median())
+            f = df[flux_col].to_numpy() / med_f
+            e = df[err_col].to_numpy() / med_f
 
             c = self._get_band_color(band)
             kwargs = {}
@@ -315,11 +318,11 @@ class LightCurvePlotter:
         axs[0].grid(ls=":", zorder=0, alpha=0.5)
 
         # Legend position
-        f_med = np.nanmedian(df_first[flux_col])
+        f_med = float(df_first[flux_col].median())
         f_std = np.nanstd(df_first[flux_col])
-        tr_mask = df_first[flux_col] < (f_med - 1.5 * f_std)
+        tr_mask = df_first[flux_col].to_numpy() < (f_med - 1.5 * f_std)
         if np.sum(tr_mask) > 0:
-            tr_time_center = np.nanmean((df_first[time_col].values - t0)[tr_mask])
+            tr_time_center = np.nanmean((df_first[time_col].to_numpy() - t0)[tr_mask])
             loc_choice = "lower right" if tr_time_center < time_mid else "lower left"
         else:
             loc_choice = "lower left"
@@ -364,9 +367,9 @@ class LightCurvePlotter:
                 axs[idx].legend(loc="upper right", fontsize=8)
 
         # Panel 5: Centroid Shift
-        time_xy = df_first["BJD_TDB"].values - t0
-        x_fits = df_first["X(FITS)_T1"]
-        x_rel = x_fits - x_fits.iloc[0]
+        time_xy = df_first["BJD_TDB"].to_numpy() - t0
+        x_fits = df_first["X(FITS)_T1"].to_numpy()
+        x_rel = x_fits - x_fits[0]
         axs[5].plot(
             time_xy,
             x_rel,
@@ -378,8 +381,8 @@ class LightCurvePlotter:
             fillstyle="none",
         )
 
-        y_fits = df_first["Y(FITS)_T1"]
-        y_rel = y_fits - y_fits.iloc[0]
+        y_fits = df_first["Y(FITS)_T1"].to_numpy()
+        y_rel = y_fits - y_fits[0]
         axs[5].plot(
             time_xy,
             y_rel,
@@ -404,10 +407,9 @@ class LightCurvePlotter:
         self.logger.info(f"Plot: {out_file}, saved")
 
         # Save individual per-band PNGs in exofop
-        exofop_dir.mkdir(parents=True, exist_ok=True)
         for band, df_band in data.items():
             self._save_single_band_multipanel(
-                obj, date, band, df_band, times_df, t0, exofop_dir
+                obj, date, band, df_band, times_df, t0, obj_folder
             )
 
     def _save_single_band_multipanel(
@@ -418,7 +420,7 @@ class LightCurvePlotter:
         df: DataFrame,
         times_df: Optional[DataFrame],
         t0: float,
-        exofop_dir: Path,
+        obj_folder: Path,
     ) -> None:
         """Save a 6-panel multipanel PNG for a single photometric band."""
         mpl.rcParams.update({"font.family": "serif", "font.size": 14})
@@ -438,9 +440,10 @@ class LightCurvePlotter:
         err_col = "rel_flux_err_T1"
         time_col = "BJD_TDB"
 
-        t = df[time_col].values - t0
-        f = df[flux_col].values / np.median(df[flux_col].values)
-        e = df[err_col].values / np.median(df[flux_col].values)
+        t = df[time_col].to_numpy() - t0
+        med_f = float(df[flux_col].median())
+        f = df[flux_col].to_numpy() / med_f
+        e = df[err_col].to_numpy() / med_f
 
         c = self._get_band_color(band)
         kwargs: dict = {}
@@ -509,9 +512,9 @@ class LightCurvePlotter:
             axs[idx].set_ylabel(ylabel)
 
         # Panel 5: Centroid shift
-        time_xy = df["BJD_TDB"].values - t0
-        x_fits = df["X(FITS)_T1"]
-        x_rel = x_fits - x_fits.iloc[0]
+        time_xy = df["BJD_TDB"].to_numpy() - t0
+        x_fits = df["X(FITS)_T1"].to_numpy()
+        x_rel = x_fits - x_fits[0]
         axs[5].plot(
             time_xy,
             x_rel,
@@ -522,8 +525,8 @@ class LightCurvePlotter:
             ms=6,
             fillstyle="none",
         )
-        y_fits = df["Y(FITS)_T1"]
-        y_rel = y_fits - y_fits.iloc[0]
+        y_fits = df["Y(FITS)_T1"].to_numpy()
+        y_rel = y_fits - y_fits[0]
         axs[5].plot(
             time_xy,
             y_rel,
@@ -539,7 +542,8 @@ class LightCurvePlotter:
         axs[5].legend(loc="best", fontsize=10)
         axs[5].grid(ls=":", alpha=0.5)
 
-        png_file: Path = exofop_dir / f"{obj}_{date}_PROFE_lc_{band}.png"
+        png_file: Path = exofop_path(obj_folder, date, obj, band, "_lightcurve", ".png")
+        png_file.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(png_file, format="png", dpi=300, bbox_inches="tight")
         plt.close(fig)
         self.logger.info(f"Plot: {png_file}, saved")
@@ -678,14 +682,7 @@ class LightCurvePlotter:
                         continue
 
                     stem = f.stem
-                    if stem.endswith("_gp") or stem.endswith("_g"):
-                        filtr = "gp"
-                    elif stem.endswith("_rp") or stem.endswith("_r"):
-                        filtr = "rp"
-                    elif stem.endswith("_ip") or stem.endswith("_i"):
-                        filtr = "ip"
-                    else:
-                        filtr = stem.split("_")[-1]
+                    filtr = normalize_band(stem.split("_")[-1])
 
                     data[filtr] = df
 
@@ -704,7 +701,7 @@ class LightCurvePlotter:
                 # Generate plots (PDF) if not already present
                 if not plots_done:
                     self._create_multipanel_plot(
-                        obj, date, data, times, out_base, exofop_base
+                        obj, date, data, times, out_base, obj_folder
                     )
                     self._create_lightcurves_plot(obj, date, data, times, out_base)
                     # CSV saving
@@ -724,5 +721,16 @@ class LightCurvePlotter:
                                 data[band],
                                 times,
                                 t0,
-                                exofop_base,
+                                obj_folder,
                             )
+
+                # Copy measurements to exofop
+                for f in meas_files:
+                    stem = f.stem
+                    band = normalize_band(stem.split("_")[-1])
+                    dest = exofop_path(
+                        obj_folder, date, obj, band, "_measurements", f.suffix
+                    )
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(f, dest)
+                    self.logger.info(f"Copied {f.name} to {dest}")
