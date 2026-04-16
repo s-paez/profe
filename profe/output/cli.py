@@ -24,8 +24,9 @@ from .alt_az_centroid import AltAzGuidingPlotter
 from .astrometry_out import AstrometrySolver
 from .comparison_stars import ComparisonStarsPlotter
 from .correlated_noise import TimeAveragingPlotter
-from .exofop_out import ExofopPlotter
+from .field_view import FieldViewPlotter
 from .light_curves import LightCurvePlotter
+from .seeing_profile import SeeingProfilePlotter
 
 # Make the logs dir
 os.makedirs("logs", exist_ok=True)
@@ -66,8 +67,11 @@ def run_output() -> None:
     avg_plotter: TimeAveragingPlotter = TimeAveragingPlotter()
     avg_plotter.run()
 
-    exofop_plotter: ExofopPlotter = ExofopPlotter()
-    exofop_plotter.run()
+    ex_plotter: FieldViewPlotter = FieldViewPlotter()
+    ex_plotter.run()
+
+    sp_plotter: SeeingProfilePlotter = SeeingProfilePlotter()
+    sp_plotter.run()
 
     comp_plotter: ComparisonStarsPlotter = ComparisonStarsPlotter()
     comp_plotter.run()
