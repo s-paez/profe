@@ -18,6 +18,8 @@ import logging
 import warnings
 from pathlib import Path
 
+from .naming import exofop_path
+
 import numpy as np
 from astropy.convolution import convolve
 from astropy.io import fits
@@ -84,12 +86,7 @@ class AstrometrySolver:
     def _is_processed(
         self, obj_dir: Path, date_name: str, target_name: str, band: str
     ) -> bool:
-        expected = (
-            obj_dir
-            / "exofop"
-            / date_name
-            / f"{target_name}_{date_name}_{band}_solved.fits"
-        )
+        expected = exofop_path(obj_dir, date_name, target_name, band, "_WCS", ".fits")
         return expected.exists()
 
     def _detect_sources(self, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -268,8 +265,7 @@ class AstrometrySolver:
                 and f.suffix in (".tbl", ".csv")
             ]
 
-            exofop_dir = obj_dir / "exofop" / date_folder.name
-            exofop_dir.mkdir(parents=True, exist_ok=True)
+            pass  # We use exofop_path instead
 
             for file_to_read in meas_files:
                 band: str = file_to_read.stem.split("_")[-1]
@@ -292,9 +288,10 @@ class AstrometrySolver:
                     continue
 
                 fits_to_solve = fits_cands[0]
-                save_path = (
-                    exofop_dir / f"{target}_{date_folder.name}_{band}_solved.fits"
+                save_path = exofop_path(
+                    obj_dir, date_folder.name, target, band, "_WCS", ".fits"
                 )
+                save_path.parent.mkdir(parents=True, exist_ok=True)
 
                 self.logger.info(
                     f"Submitting {fits_to_solve.name} ({band}) to "
