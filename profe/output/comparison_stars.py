@@ -106,6 +106,24 @@ class ComparisonStarsPlotter:
             return np.nan
         return float(np.std(clean_data) / np.abs(np.median(clean_data)) * 1000)
 
+    @staticmethod
+    def _sigma_clip(data: NDArray, sigma: float = 3.0) -> NDArray:
+        """Replace outliers beyond +-sigma*std from the median with NaN.
+
+        Args:
+            data: Input array (may already contain NaNs).
+            sigma: Number of standard deviations for the clipping threshold.
+
+        Returns:
+            A copy of *data* with outliers set to NaN.
+        """
+        clipped = data.copy()
+        med = np.nanmedian(clipped)
+        std = np.nanstd(clipped)
+        mask = np.abs(clipped - med) > sigma * std
+        clipped[mask] = np.nan
+        return clipped
+
     def _calc_rms_in_intervals(
         self, time: NDArray, data: NDArray, times_df: Optional[DataFrame]
     ) -> float:
@@ -177,9 +195,10 @@ class ComparisonStarsPlotter:
         Create a 6-panel comparison star plot for one band.
 
         Panel 0 shows up to 6 comparison star light curves with vertical
-        offsets (auto-calculated as 3× the std of the first comparison star)
-        and 10-minute binned data, colored with the plasma colormap (0–70%).
-        Panels 1–5 mirror the standard multipanel diagnostic layout.
+        offsets (auto-calculated from each curve's own dispersion after
+        sigma-clipping outliers) and 10-minute binned data, colored with
+        the plasma colormap (0–70%).  Panels 1–5 mirror the standard
+        multipanel diagnostic layout.
 
         Args:
             obj (str): Target object name.
@@ -197,13 +216,8 @@ class ComparisonStarsPlotter:
             return
 
         n_stars = len(comp_ids)
-        cmap = plt.cm.plasma
+        cmap = mpl.colormaps["plasma"]
         colors = [cmap(i / max(n_stars - 1, 1) * 0.7) for i in range(n_stars)]
-
-        # Auto-calculate offset based on scatter of first comparison star
-        first_flux = df[f"rel_flux_{comp_ids[0]}"].values
-        first_norm = first_flux / np.nanmedian(first_flux)
-        offset_step = 3 * np.nanstd(first_norm)
 
         time_col = "BJD_TDB"
         t0 = df[time_col].values[0]
@@ -220,19 +234,30 @@ class ComparisonStarsPlotter:
         )
 
         # ── Panel 0: Comparison star curves with offsets ─────────────────
+        cumulative_offset: float = 0.0
         for i, comp_id in enumerate(comp_ids):
             flux_col = f"rel_flux_{comp_id}"
             err_col = f"rel_flux_err_{comp_id}"
 
             t = df[time_col].values - t0
-            median_flux = np.nanmedian(df[flux_col].values)
-            f_norm = df[flux_col].values / median_flux
-            e_norm = df[err_col].values / median_flux
-            offset = i * offset_step
+            flux_vals = np.asarray(df[flux_col].values, dtype=float)
+            err_vals = np.asarray(df[err_col].values, dtype=float)
+            median_flux = np.nanmedian(flux_vals)
+            f_raw = flux_vals / median_flux
+            e_norm = err_vals / median_flux
+
+            # Sigma-clip outliers (3σ)
+            f_norm = self._sigma_clip(f_raw, sigma=3.0)
+
+            # Offset proportional to this curve's own dispersion
+            curve_std = np.nanstd(f_norm)
+            if i > 0:
+                cumulative_offset += 5 * curve_std
+            offset = cumulative_offset
 
             axs[0].errorbar(
                 t,
-                f_norm + offset,
+                f_norm - offset,
                 yerr=e_norm,
                 fmt=".",
                 alpha=0.1,
@@ -249,7 +274,7 @@ class ComparisonStarsPlotter:
 
             axs[0].errorbar(
                 t_bin,
-                f_bin + offset,
+                f_bin - offset,
                 yerr=e_bin,
                 fmt="o",
                 markerfacecolor="white",
@@ -282,7 +307,7 @@ class ComparisonStarsPlotter:
 
         axs[0].set_ylabel("Relative Flux + Offset")
         axs[0].grid(ls=":", zorder=0, alpha=0.5)
-        axs[0].legend(loc="best", fontsize=8)
+        axs[0].legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=8)
         axs[0].set_title(f"{obj} ({date}) [{band}] — Comparison Stars")
 
         # ── Panels 1–4: Diagnostic variables ─────────────────────────────
@@ -349,7 +374,7 @@ class ComparisonStarsPlotter:
             - Load the ``.tbl`` / ``.csv`` measurement file.
             - Identify comparison star columns.
             - Generate the 6-panel comparison star plot.
-            - Save as PNG (DPI=300) to ``exofop/<date>/``.
+            - Save as PNG to ``exofop/<date>/``.
         """
         for obj_folder in sorted(self.data_dir.iterdir()):
             if not obj_folder.is_dir():
