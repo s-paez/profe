@@ -24,6 +24,8 @@ from matplotlib.patches import Circle, Wedge
 from pandas import DataFrame
 from photutils.profiles import RadialProfile
 
+from .naming import exofop_path
+
 
 class ExofopPlotter:
     """
@@ -60,12 +62,7 @@ class ExofopPlotter:
         Returns:
             bool: True if the aperture plot PNG already exists.
         """
-        expected = (
-            obj_dir
-            / "exofop"
-            / date_name
-            / f"{target_name}_{date_name}_{band}_apertures.png"
-        )
+        expected = exofop_path(obj_dir, date_name, target_name, band, "_field", ".png")
         return expected.exists()
 
     def _generate_plots(
@@ -94,8 +91,7 @@ class ExofopPlotter:
             file_to_read (Path): Path to the correct band measurement file.
             band (str): The corresponding physical band.
         """
-        exofop_dir: Path = obj_dir / "exofop" / date_folder.name
-        exofop_dir.mkdir(parents=True, exist_ok=True)
+        pass  # We use exofop_path instead
 
         data: DataFrame
         if file_to_read.suffix == ".tbl":
@@ -177,9 +173,10 @@ class ExofopPlotter:
                 )
             )
         ax.set_title(f"{target_name} ({band}) Aperture Visualization")
-        ap_path: Path = (
-            exofop_dir / f"{target_name}_{date_folder.name}_{band}_apertures.png"
+        ap_path: Path = exofop_path(
+            obj_dir, date_folder.name, target_name, band, "_field", ".png"
         )
+        ap_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(ap_path, dpi=300)
         plt.close(fig)
         self.logger.info(f"Saved aperture plot at {ap_path}")
@@ -198,9 +195,10 @@ class ExofopPlotter:
         ax2.set_ylabel("Counts")
         ax2.set_title(f"{target_name} ({band}) Radial Profile")
         ax2.legend()
-        rp_path: Path = (
-            exofop_dir / f"{target_name}_{date_folder.name}_{band}_radial_profile.png"
+        rp_path: Path = exofop_path(
+            obj_dir, date_folder.name, target_name, band, "_seeing-profile", ".png"
         )
+        rp_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(rp_path, dpi=300)
         plt.close(fig2)
         self.logger.info(f"Saved radial profile plot at {rp_path}")
