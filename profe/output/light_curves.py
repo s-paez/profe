@@ -62,9 +62,9 @@ class LightCurvePlotter:
         # argument about mins to binning
         self.bin_minutes = bin_minutes
 
-    def _is_processed(self, obj_folder: Path, obj: str, date: str) -> bool:
+    def _plots_exist(self, obj_folder: Path, obj: str, date: str) -> bool:
         """
-        Check whether the light curve outputs already exist for (object, date).
+        Check whether the main plot outputs already exist for (object, date).
 
         Args:
             obj_folder (Path): Path to the object directory.
@@ -76,6 +76,28 @@ class LightCurvePlotter:
         """
         expected = obj_folder / "plots" / date / f"{obj}_{date}_PROFE_lc.pdf"
         return expected.exists()
+
+    def _missing_exofop_bands(
+        self, obj_folder: Path, obj: str, date: str, bands: list[str]
+    ) -> list[str]:
+        """
+        Return band names whose per-band exofop PNGs do not yet exist.
+
+        Args:
+            obj_folder (Path): Path to the object directory.
+            obj (str): Target object name.
+            date (str): Observation date in YYYY-MM-DD format.
+            bands (list[str]): Available photometric band names.
+
+        Returns:
+            list[str]: Bands whose exofop PNG is missing.
+        """
+        exofop_dir = obj_folder / "exofop" / date
+        return [
+            b
+            for b in bands
+            if not (exofop_dir / f"{obj}_{date}_PROFE_lc_{b}.png").exists()
+        ]
 
     def _load_times(self, folder: Path) -> DataFrame | None:
         """
@@ -378,12 +400,148 @@ class LightCurvePlotter:
         out_file: Path = out_folder / f"{obj}_{date}_PROFE_lc.pdf"
         fig.savefig(out_file, format="pdf", bbox_inches="tight")
 
-        exofop_dir.mkdir(parents=True, exist_ok=True)
-        png_file: Path = exofop_dir / f"{obj}_{date}_PROFE_lc.png"
-        fig.savefig(png_file, format="png", dpi=300, bbox_inches="tight")
-
         plt.close(fig)
         self.logger.info(f"Plot: {out_file}, saved")
+
+        # Save individual per-band PNGs in exofop
+        exofop_dir.mkdir(parents=True, exist_ok=True)
+        for band, df_band in data.items():
+            self._save_single_band_multipanel(
+                obj, date, band, df_band, times_df, t0, exofop_dir
+            )
+
+    def _save_single_band_multipanel(
+        self,
+        obj: str,
+        date: str,
+        band: str,
+        df: DataFrame,
+        times_df: Optional[DataFrame],
+        t0: float,
+        exofop_dir: Path,
+    ) -> None:
+        """Save a 6-panel multipanel PNG for a single photometric band."""
+        mpl.rcParams.update({"font.family": "serif", "font.size": 14})
+
+        fig, axs = plt.subplots(
+            6,
+            1,
+            figsize=(10, 17),
+            sharex=True,
+            gridspec_kw={
+                "hspace": 0.0,
+                "height_ratios": [1.5, 0.8, 0.8, 0.8, 0.8, 0.8],
+            },
+        )
+
+        flux_col = "rel_flux_T1"
+        err_col = "rel_flux_err_T1"
+        time_col = "BJD_TDB"
+
+        t = df[time_col].values - t0
+        f = df[flux_col].values / np.median(df[flux_col].values)
+        e = df[err_col].values / np.median(df[flux_col].values)
+
+        c = self._get_band_color(band)
+        kwargs: dict = {}
+        if c:
+            kwargs["color"] = c
+
+        # Panel 0: Light curve
+        axs[0].errorbar(
+            t,
+            f,
+            yerr=e,
+            fmt=".",
+            alpha=0.1,
+            elinewidth=0.5,
+            capsize=2,
+            label="_nolegend_",
+            **kwargs,
+        )
+
+        t_bin, f_bin, e_bin = self._bin_data(t, f, e, self.bin_minutes)
+        rms_data = self._calc_rms_in_intervals(t, f, times_df)
+        rms_bin = self._calc_rms_in_intervals(t_bin, f_bin, times_df)
+
+        markeredge = c if c else "black"
+        axs[0].errorbar(
+            t_bin,
+            f_bin,
+            yerr=e_bin,
+            fmt="o",
+            markerfacecolor="white",
+            markeredgecolor=markeredge,
+            label=f"{band} (RMS: {rms_data:.2f} ppt, {rms_bin:.2f} ppt/{self.bin_minutes}min)",
+            capsize=2,
+            zorder=20,
+            **kwargs,
+        )
+
+        if times_df is not None and not times_df.empty:
+            for i_t, f_t in zip(times_df["init_time"], times_df["final_time"]):
+                axs[0].axvline(
+                    i_t - t0, color="gray", linestyle="--", linewidth=0.8, alpha=0.7
+                )
+                axs[0].axvline(
+                    f_t - t0, color="gray", linestyle="--", linewidth=0.8, alpha=0.7
+                )
+
+        axs[0].set_ylabel("Relative Flux")
+        axs[0].grid(ls=":", zorder=0, alpha=0.5)
+        axs[0].legend(loc="lower left", fontsize=9)
+
+        # Panels 1-4: auxiliary variables
+        panel_vars = [
+            (1, "AIRMASS", "AIRMASS"),
+            (2, "Width_T1", "Width_T1 [Pixels]"),
+            (3, "tot_C_cnts", "Total Comp. Counts"),
+            (4, "Sky/Pixel_T1", "Sky/Pixel_T1"),
+        ]
+        for idx, col, ylabel in panel_vars:
+            y = df[col]
+            color = "darkslateblue" if idx == 1 else (c if c else None)
+            kw: dict = {}
+            if color:
+                kw["color"] = color
+            axs[idx].plot(t, y, ".", alpha=0.5, label="_nolegend_", ms=4, **kw)
+            axs[idx].grid(ls=":", zorder=0, alpha=0.5)
+            axs[idx].set_ylabel(ylabel)
+
+        # Panel 5: Centroid shift
+        time_xy = df["BJD_TDB"].values - t0
+        x_fits = df["X(FITS)_T1"]
+        x_rel = x_fits - x_fits.iloc[0]
+        axs[5].plot(
+            time_xy,
+            x_rel,
+            ".",
+            color="m",
+            alpha=0.6,
+            label=r"X",
+            ms=6,
+            fillstyle="none",
+        )
+        y_fits = df["Y(FITS)_T1"]
+        y_rel = y_fits - y_fits.iloc[0]
+        axs[5].plot(
+            time_xy,
+            y_rel,
+            "^",
+            color="limegreen",
+            alpha=0.6,
+            label=r"Y",
+            ms=3,
+            fillstyle="none",
+        )
+        axs[5].set_ylabel(r"Centroid shift [pixels]")
+        axs[5].set_xlabel(r"BJD$_{TDB}$ - " + f"{t0:.2f}")
+        axs[5].legend(loc="best", fontsize=10)
+        axs[5].grid(ls=":", alpha=0.5)
+
+        png_file: Path = exofop_dir / f"{obj}_{date}_PROFE_lc_{band}.png"
+        fig.savefig(png_file, format="png", dpi=300, bbox_inches="tight")
+        plt.close(fig)
         self.logger.info(f"Plot: {png_file}, saved")
 
     def _create_lightcurves_plot(
@@ -393,7 +551,6 @@ class LightCurvePlotter:
         data: Dict,
         times_df: Optional[DataFrame],
         out_folder: Path,
-        exofop_dir: Path,
     ) -> None:
         mpl.rcParams.update({"font.family": "serif", "font.size": 14})
         n_bands = len(data)
@@ -464,13 +621,8 @@ class LightCurvePlotter:
         out_file: Path = out_folder / f"{obj}_{date}_lc_{n_bands}panels.pdf"
         plt.savefig(out_file, format="pdf", bbox_inches="tight")
 
-        exofop_dir.mkdir(parents=True, exist_ok=True)
-        png_file: Path = exofop_dir / f"{obj}_{date}_lc_{n_bands}panels.png"
-        plt.savefig(png_file, format="png", dpi=300, bbox_inches="tight")
-
         plt.close(fig_lc)
         self.logger.info(f"Plot: {out_file}, saved")
-        self.logger.info(f"Plot: {png_file}, saved")
 
     def run(self) -> None:
         """
@@ -501,16 +653,18 @@ class LightCurvePlotter:
                 if not date_folder.is_dir():
                     continue
                 date: str = date_folder.name
-                if self._is_processed(obj_folder, obj, date):
-                    self.logger.info(f"Skipping {obj},{date}. Already processed")
-                    continue
 
+                plots_done = self._plots_exist(obj_folder, obj, date)
+
+                # Determine which exofop bands are missing (need data to know
+                # available bands, but we can do a quick pre-check with the
+                # known standard bands to avoid loading data unnecessarily).
                 meas_files: list = self._obtain_measurements(date_folder)
                 if not meas_files:
                     self.logger.warning(f"No measurements in {date_folder} — Skipping")
                     continue
 
-                # Load data
+                # Load data only if plots are needed OR exofop may be missing
                 data: Dict = {}
                 for f in meas_files:
                     df: DataFrame
@@ -535,18 +689,40 @@ class LightCurvePlotter:
 
                     data[filtr] = df
 
-                times: DataFrame | None = self._load_times(date_folder)
+                missing_bands = self._missing_exofop_bands(
+                    obj_folder, obj, date, list(data.keys())
+                )
 
-                # Plots
+                if plots_done and not missing_bands:
+                    self.logger.info(f"Skipping {obj},{date}. Already processed")
+                    continue
+
+                times: DataFrame | None = self._load_times(date_folder)
                 out_base: Path = obj_folder / "plots" / date
                 exofop_base: Path = obj_folder / "exofop" / date
-                self._create_multipanel_plot(
-                    obj, date, data, times, out_base, exofop_base
-                )
-                self._create_lightcurves_plot(
-                    obj, date, data, times, out_base, exofop_base
-                )
 
-                # CSV saving
-                lcs_folder: Path = lcs_root / date
-                self._save_csv(lcs_folder, data)
+                # Generate plots (PDF) if not already present
+                if not plots_done:
+                    self._create_multipanel_plot(
+                        obj, date, data, times, out_base, exofop_base
+                    )
+                    self._create_lightcurves_plot(obj, date, data, times, out_base)
+                    # CSV saving
+                    lcs_folder: Path = lcs_root / date
+                    self._save_csv(lcs_folder, data)
+                elif missing_bands:
+                    # Plots exist but some exofop PNGs are missing
+                    first_band = list(data.keys())[0]
+                    t0: float = data[first_band]["BJD_TDB"].values[0]
+                    exofop_base.mkdir(parents=True, exist_ok=True)
+                    for band in missing_bands:
+                        if band in data:
+                            self._save_single_band_multipanel(
+                                obj,
+                                date,
+                                band,
+                                data[band],
+                                times,
+                                t0,
+                                exofop_base,
+                            )
