@@ -42,7 +42,7 @@ class AstrometrySolver:
     to Nova via ``solve_from_source_list``.
     """
 
-    # Source-detection tunables
+    # Source-detection variables
     BKG_BOX_SIZE: int = 50  # Background2D box size (pixels)
     BKG_FILTER_SIZE: int = 3  # Background2D median-filter size
     FWHM_KERNEL: float = 4.0  # Gaussian kernel FWHM for convolution
@@ -108,7 +108,7 @@ class AstrometrySolver:
             5. Sort by flux (descending) and return the top
                ``MAX_SOURCES`` (x, y) positions.
         """
-        # 1. Robust 2D background estimation
+        # 1. Background estimation
         sigma_clip = SigmaClip(sigma=3.0)
         bkg_estimator = MedianBackground()
         bkg = Background2D(
@@ -119,29 +119,27 @@ class AstrometrySolver:
             bkg_estimator=bkg_estimator,
         )
 
-        # Subtract the background for net signal
         data_subtracted = data - bkg.background
         threshold = self.DETECT_SIGMA * bkg.background_rms
 
-        # 2. Convolve with a larger kernel for faint sources
+        # Convolve with a larger kernel
         kernel = make_2dgaussian_kernel(fwhm=self.FWHM_KERNEL, size=5)
         convolved = convolve(data_subtracted, kernel)
 
-        # 3. Segmentation (low npixels to catch small sources)
+        # Segmentation
         segm = detect_sources(convolved, threshold, npixels=self.DETECT_NPIXELS)
 
         if segm is None:
             self.logger.warning("Segmentation found zero sources.")
             return np.array([]), np.array([])
 
-        # 4. Source catalog on the background-subtracted image
+        # Source catalog
         cat = SourceCatalog(data_subtracted, segm)
         sources = cat.to_table()
 
-        # Approximate FWHM = 2.355 * sigma_semimajor
         sources["fwhm"] = cat.semimajor_sigma.value * 2.355
 
-        # Log FWHM distribution before filtering
+        # Log FWHM distribution
         fwhm_vals = sources["fwhm"]
         self.logger.info(
             f"Source FWHM stats: n={len(fwhm_vals)}, "
@@ -150,7 +148,6 @@ class AstrometrySolver:
             f"max={np.nanmax(fwhm_vals):.2f}"
         )
 
-        # Filter by FWHM range
         mask = (sources["fwhm"] > self.FWHM_LOW) & (sources["fwhm"] < self.FWHM_HIGH)
         filtered = sources[mask]
 
@@ -162,7 +159,7 @@ class AstrometrySolver:
         if len(filtered) == 0:
             return np.array([]), np.array([])
 
-        # 5. Sort by flux (descending) and keep the brightest
+        # Sort by flux (descending) and keep the brightest
         filtered.sort("segment_flux", reverse=True)
         x = filtered["xcentroid"][: self.MAX_SOURCES]
         y = filtered["ycentroid"][: self.MAX_SOURCES]
@@ -198,7 +195,7 @@ class AstrometrySolver:
             self.logger.warning(f"No sources detected for {fits_path.name} — skipping.")
             return {}
 
-        # Solve settings
+        # Solve settings for OPTICAM data
         solve_settings: dict = {
             "parity": 0,
             "scale_units": "degwidth",
@@ -211,7 +208,7 @@ class AstrometrySolver:
         if "RA" in hdr and "DEC" in hdr:
             solve_settings["radius"] = 0.25
 
-        # Retry loop from astroquery docs
+        # Retry loop from astroquery
         try_again = True
         submission_id = None
         wcs_header: fits.Header | dict = {}
