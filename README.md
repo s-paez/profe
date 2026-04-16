@@ -15,12 +15,15 @@ A Python-based pipeline to automate preprocessing and postprocessing of data acq
   * Update headers and compute Julian Date.
   * Apply median filter
 * **Postprocessing** (`profe -o`):
-
-  * Plot of altitude-azimuth trajectory and centroids and movement in pixels .
-  * Generate binned light curves with RMS measurements.
-  * Time-averaging curves with the red and white noise in the time-series.
-  * Radial profile for target star
-  * Field of View with apertures for target and comparison stars
+  * Generated multi-band binned light curves with RMS measurements (PDF & CSV).
+  * Time-averaging noise plots (Red vs White noise characterization).
+  * Altitude-Azimuth trajectory and Centroid movement plots.
+  * ExoFOP-standardized products:
+    * Standardized single-band Light Curves (PNG).
+    * Aperture visualization (Field of View) and Radial Profiles.
+    * Light curves for comparison stars.
+    * Automated WCS solving via Astrometry.net.
+    * Integrated archival of measurement tables.
 
 ---
 
@@ -37,6 +40,11 @@ Dependencies defined in `pyproject.toml`:
 * photutils ($\geq 2.2.0$, $<3.0.0$)
 * numpy ($\geq 1.24$, $<2.0$)
 * astroquery ($\geq 0.4.7$)
+
+### External Setup
+For automated **WCS Solving**, you must provide an [Astrometry.net](https://nova.astrometry.net/) API key:
+1. Create a file named `.astrometry_key` at the root of your project.
+2. Paste your 16-character API key inside the file.
 
 ---
 
@@ -61,7 +69,7 @@ pip install .[dev]
 ## Usage
 ### Preprocessing
 
-**PROFE** requires your original FITS files to be placed inside a `data/` directory relative to where you run the command. The pipeline will read the files from there, organize them, update their FITS headers, and apply the median filter correction.
+**PROFE** recursively searches for original FITS files inside a `data/` directory relative to where the command is executed. The pipeline organizes them, updates FITS headers (Julian Date), and applies median filter corrections.
 
 To execute the preprocessing:
 
@@ -83,23 +91,53 @@ After a successful preprocessing run, your pipeline translates the `data/` conte
 organized_data/
 └── {TARGET}/
     ├── raw/
-    │   └── {DATE}/         <-- Original FITS (with updated headers)
+    │   └── {DATE}/         <-- Original FITS (updated headers)
     ├── corrected_3x3/
-    │   └── {DATE}/         <-- Copies processed with 3x3 median filter
-    ├── measurements/       <-- Data tables for postprocessing
-    ├── lcs/                <-- Generated Lightcurves
-    └── exofop/             <-- ExoFOP formatted outputs
+    │   └── {DATE}/         <-- 3x3 median filter products
+    ├── measurements/
+    │   └── {DATE}/         <-- AIJ .tbl/.csv files (INPUT for -o)
+    │       └── times/
+    │           └── times.csv <-- Optional time intervals
+    ├── lcs/
+    │   └── {DATE}/         <-- Normalized multi-band CSVs
+    ├── plots/
+    │   └── {DATE}/         <-- Diagnostic PDFs and PNGs
+    └── exofop/
+        └── {DATE}/
+            └── {band}/     <-- Standardized ExoFOP products
 ```
-### AstroImageJ
-Once the data have been preprocessed with `profe`, it is time to perform data reduction and photometry with AstroImageJ and save the measurements tables in `.tbl` format.
+
+### AstroImageJ Integration
+After preprocessing, perform photometry in AstroImageJ using the files in `corrected_3x3/`. Save the measurement tables in the corresponding `measurements/{DATE}/` directory.
+
+**Requirements for Measurement Files:**
+* **Format**: `.tbl` (tab-separated) or `.csv` (comma-separated).
+* **Naming**: The filename must end with the band suffix (e.g., `myfile_gp.tbl`, `obs1_rp.csv`, or `data_i.tbl`). Supported bands: `g`, `gp`, `r`, `rp`, `i`, `ip`.
+
+### Optional: Time Averaging & RMS Intervals
+To define specific non-transit intervals for RMS calculation and noise analysis, create a `times/times.csv` file inside the date folder in `measurements/`:
+* **Columns**: `init_time`, `final_time` (in JD or BJD units).
+* **Usage**: If present, PROFE will use these intervals for legeng RMS calculations and the time-averaging diagnostic plots.
 
 ### Outputs
-
-Generate light curves (plots and files), centroid movement plots, Alt-Az trajectory, Field of View apertures, radial profile and time-averaging curves for `measurements.tbl` files:
+Run the following to generate all scientific products:
 
 ```bash
 profe -o
 ```
+
+#### Standardized ExoFOP Products
+All files in `exofop/{DATE}/{BAND}/` follow the standardized naming convention:
+`{TARGET}-01_{YYYYMMDD}_OAN-SPM-2m1-OPTICAM_{BAND}_{TYPE}.{EXT}`
+
+| TYPE | Description |
+|---|---|
+| `_lightcurve` | High-resolution PNG plot of the light curve. |
+| `_field` | Science image showing source and sky apertures. |
+| `_seeing-profile` | Radial profile of the target star. |
+| `_WCS` | WCS-solved FITS header integrated into the first science image. |
+| `_compstar-lightcurves` | Diagnostic plot of up to 6 comparison star light curves. |
+| `_measurements` | A copy of the original photometry table used. |
 
 ### Manual
 
