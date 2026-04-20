@@ -120,6 +120,13 @@ class TransitDataManager:
         try:
             idx_comment = headers.index("Comments andfollowup status")
             idx_times = next(i for i, h in enumerate(headers) if "BJDTDB" in h)
+            # Find Depth and Duration columns using flexible matching
+            idx_depth = next(
+                (i for i, h in enumerate(headers) if "depth" in h.lower()), None
+            )
+            idx_dur = next(
+                (i for i, h in enumerate(headers) if "durat" in h.lower()), None
+            )
         except (ValueError, StopIteration) as e:
             logger.error(
                 f"Could not find expected columns in TTF table for TIC {tic_id}: {e}"
@@ -132,7 +139,12 @@ class TransitDataManager:
             if not isinstance(row, Tag):
                 continue
             cols = row.find_all("td")
-            if len(cols) <= max(idx_comment, idx_times):
+            if len(cols) <= max(
+                idx_comment,
+                idx_times,
+                idx_depth if idx_depth is not None else 0,
+                idx_dur if idx_dur is not None else 0,
+            ):
                 continue
 
             # Since we specifically queried the target date, we take all transits
@@ -140,6 +152,10 @@ class TransitDataManager:
 
             comment = cols[idx_comment].get_text(strip=True)
             times_raw = cols[idx_times].get_text()
+            depth = (
+                cols[idx_depth].get_text(strip=True) if idx_depth is not None else ""
+            )
+            duration = cols[idx_dur].get_text(strip=True) if idx_dur is not None else ""
 
             # Parsing logic from reference script
             parts = times_raw.replace("\u2014", " ").replace("\n", " ").split()
@@ -176,6 +192,8 @@ class TransitDataManager:
                             "ingress": f"{t1:.4f}",
                             "mid": f"{t2:.4f}",
                             "egress": f"{t3:.4f}",
+                            "depth": depth,
+                            "duration": duration,
                         }
                     )
                 except Exception as e:
@@ -252,11 +270,11 @@ class TransitDataManager:
                 try:
                     with open(out_file, "w") as f:
                         f.write(
-                            "TOI\tTIC\tIngress(BJD)\tMid(BJD)\tEgress(BJD)\tComment\n"
+                            "TOI\tTIC\tIngress(BJD)\tMid(BJD)\tEgress(BJD)\tDepth(ppt)\tDuration(hrs)\tComment\n"
                         )
                         for t in transits:
                             f.write(
-                                f"{target_name}\t{tic_numeric}\t{t['ingress']}\t{t['mid']}\t{t['egress']}\t{t['comment']}\n"
+                                f"{target_name}\t{tic_numeric}\t{t['ingress']}\t{t['mid']}\t{t['egress']}\t{t['depth']}\t{t['duration']}\t{t['comment']}\n"
                             )
                     logger.info(f"Saved transit data to {out_file}")
                 except Exception as e:
