@@ -2,6 +2,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -32,9 +33,9 @@ class ReportGenerator:
         self.logs_dir = self.base_dir / "logs"
         os.makedirs(self.logs_dir, exist_ok=True)
 
-    def _extract_measurement_metrics(self, tbl_file: Path, band: str) -> dict:
+    def _extract_measurement_metrics(self, tbl_file: Path, band: str) -> dict[str, Any]:
         """Extract FWHM, Aperture, and Shift metrics from a measurement table."""
-        metrics = {"scale": PIXEL_SCALES.get(band, 0.15)}
+        metrics: dict[str, Any] = {"scale": PIXEL_SCALES.get(band, 0.15)}
         try:
             df = pd.read_csv(tbl_file, sep=r"\t+", engine="python", encoding="latin1")
 
@@ -62,9 +63,9 @@ class ReportGenerator:
 
         return metrics
 
-    def _extract_fit_metrics(self, aij_dir: Path) -> dict:
+    def _extract_fit_metrics(self, aij_dir: Path) -> dict[str, Any]:
         """Extract Depth, Tc, Rp/Rs, RMS, and Duration from fitpanel files."""
-        metrics = {}
+        metrics: dict[str, Any] = {}
         if not aij_dir.exists():
             return metrics
 
@@ -107,7 +108,9 @@ class ReportGenerator:
 
         return metrics
 
-    def _get_predicted_metrics(self, obj_folder: Path, date: str, exofop_id: str) -> dict:
+    def _get_predicted_metrics(
+        self, obj_folder: Path, date: str, exofop_id: str
+    ) -> dict[str, str]:
         """Read predicted transit metrics from the .dat file created by transit_info.py."""
         date_compact = date.replace("-", "")
         dat_file = (
@@ -116,13 +119,13 @@ class ReportGenerator:
             / date
             / f"{exofop_id}-01_{date_compact}_OAN-SPM-2m1-OPTICAM_transit_times.dat"
         )
-        
+
         pred = {
             "tc": "[Predicted_Tc]",
             "depth": "[Predicted_Depth]",
-            "duration": "[Predicted_Duration]"
+            "duration": "[Predicted_Duration]",
         }
-        
+
         if dat_file.exists():
             try:
                 df = pd.read_csv(dat_file, sep="\t")
@@ -134,7 +137,7 @@ class ReportGenerator:
                     pred["duration"] = str(row["Duration(hrs)"])
             except Exception as e:
                 logger.error(f"Error reading predicted metrics from {dat_file}: {e}")
-        
+
         return pred
 
     def _generate_report(
@@ -142,8 +145,8 @@ class ReportGenerator:
         target_name: str,
         exofop_id: str,
         date: str,
-        bands_data: dict,
-        predicted: dict,
+        bands_data: dict[str, dict[str, Any]],
+        predicted: dict[str, str],
     ) -> str:
         """Generate the consolidated report text."""
         date_dots = date.replace("-", ".")
@@ -155,11 +158,15 @@ class ReportGenerator:
         fwhms = []
         for b in bands_present:
             m = bands_data[b]
-            ap = f"{(m.get('ap_px', 0) * m['scale']):.1f}\"" if "ap_px" in m else "[Ap]"
-            fwhm = f"{(m.get('fwhm_px', 0) * m['scale']):.1f}\"" if "fwhm_px" in m else "[FWHM]"
+            ap = f'{(m.get("ap_px", 0) * m["scale"]):.1f}"' if "ap_px" in m else "[Ap]"
+            fwhm = (
+                f'{(m.get("fwhm_px", 0) * m["scale"]):.1f}"'
+                if "fwhm_px" in m
+                else "[FWHM]"
+            )
             aps.append(f"{b}: {ap}")
             fwhms.append(f"{b}: {fwhm}")
-        
+
         ap_line = ", ".join(aps)
         fwhm_line = ", ".join(fwhms)
 
@@ -192,33 +199,41 @@ class ReportGenerator:
         # Shifts (approx from first available band as in original script)
         ref_b = bands_present[0]
         m_ref = bands_data[ref_b]
-        shift_x_std = f"{m_ref['shift_x_std']:.4f}" if "shift_x_std" in m_ref else "[X_std]"
-        shift_y_std = f"{m_ref['shift_y_std']:.4f}" if "shift_y_std" in m_ref else "[Y_std]"
-        shift_x_max = f"{m_ref['shift_x_max']:.4f}" if "shift_x_max" in m_ref else "[X_max]"
-        shift_y_max = f"{m_ref['shift_y_max']:.4f}" if "shift_y_max" in m_ref else "[Y_max]"
+        shift_x_std = (
+            f"{m_ref['shift_x_std']:.4f}" if "shift_x_std" in m_ref else "[X_std]"
+        )
+        shift_y_std = (
+            f"{m_ref['shift_y_std']:.4f}" if "shift_y_std" in m_ref else "[Y_std]"
+        )
+        shift_x_max = (
+            f"{m_ref['shift_x_max']:.4f}" if "shift_x_max" in m_ref else "[X_max]"
+        )
+        shift_y_max = (
+            f"{m_ref['shift_y_max']:.4f}" if "shift_y_max" in m_ref else "[Y_max]"
+        )
 
         template = f"""{exofop_id} (TOI {target_name}) on UT{date_dots} from {EXPECTED_OBS} in {band_str}
 
-{OBSERVERS}/{EXPECTED_OBS} observed a full transit on {date} in {band_str} and detected a {depth_lines[0].split(': ')[1] if depth_lines else '[Depth]'} event using uncontaminated {ap_line} target apertures. [(Rp/R*)^2 (from AIJ analysis): {rprs2_lines[0].split(': ')[1] if rprs2_lines else '[RpRs2]'}]
+{OBSERVERS}/{EXPECTED_OBS} observed a full transit on {date} in {band_str} and detected a {depth_lines[0].split(": ")[1] if depth_lines else "[Depth]"} event using uncontaminated {ap_line} target apertures. [(Rp/R*)^2 (from AIJ analysis): {rprs2_lines[0].split(": ")[1] if rprs2_lines else "[RpRs2]"}]
 
 1.  GOAL(S):
 
 2.  INTERPRETATION OF RESULTS:
-    
+
 
 3.  APERTURE RADIUS: {ap_line}
 
-4.  PREDICTED Tc (BJD_TDB):     {predicted['tc']} 
+4.  PREDICTED Tc (BJD_TDB):     {predicted["tc"]}
 {obs_tc_block}
-    
+
     OBSERVATION COVERAGE:
-    PREDICTED DEPTH:                {predicted['depth']} ppt
+    PREDICTED DEPTH:                {predicted["depth"]} ppt
 {depth_block}
 
 {rprs2_block}
 
 {rms_block}
-    PREDICTED DURATION (HH:MM):              {predicted['duration']}
+    PREDICTED DURATION (HH:MM):              {predicted["duration"]}
 {dur_block}
 
 5.  FWHM: {fwhm_line}
@@ -276,7 +291,7 @@ class ReportGenerator:
                 for mf in meas_files:
                     stem = mf.stem
                     band = normalize_band(stem.split("_")[-1])
-                    
+
                     metrics = self._extract_measurement_metrics(mf, band)
                     aij_dir = obj_folder / "exofop" / date / "AIJ" / band
                     fit_metrics = self._extract_fit_metrics(aij_dir)
@@ -299,8 +314,10 @@ class ReportGenerator:
                     logger.info(f"Skipping {out_file.name}: already exists.")
                     continue
 
-                logger.info(f"Generating consolidated report for {target_name} on {date} [{bands_suffix}]")
-                
+                logger.info(
+                    f"Generating consolidated report for {target_name} on {date} [{bands_suffix}]"
+                )
+
                 report_content = self._generate_report(
                     target_name, exofop_id, date, bands_data, predicted
                 )
