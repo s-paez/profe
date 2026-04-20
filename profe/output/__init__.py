@@ -19,12 +19,14 @@ from .alt_az_centroid import AltAzGuidingPlotter
 from .comparison_stars import ComparisonStarsPlotter
 from .correlated_noise import TimeAveragingPlotter
 from .light_curves import LightCurvePlotter
+from .report_generator import ReportGenerator
 from .transit_info import TransitDataManager
 
 __all__: list[str] = [
     "AltAzGuidingPlotter",
     "ComparisonStarsPlotter",
     "LightCurvePlotter",
+    "ReportGenerator",
     "TimeAveragingPlotter",
     "TransitDataManager",
 ]

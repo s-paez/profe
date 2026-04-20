@@ -26,6 +26,7 @@ from .comparison_stars import ComparisonStarsPlotter
 from .correlated_noise import TimeAveragingPlotter
 from .field_view import FieldViewPlotter
 from .light_curves import LightCurvePlotter
+from .report_generator import ReportGenerator
 from .seeing_profile import SeeingProfilePlotter
 from .transit_info import TransitDataManager
 
@@ -82,6 +83,9 @@ def run_output() -> None:
 
     transit_manager: TransitDataManager = TransitDataManager()
     transit_manager.run()
+
+    report_generator: ReportGenerator = ReportGenerator()
+    report_generator.run()
 
 
 if __name__ == "__main__":
