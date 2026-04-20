@@ -307,7 +307,7 @@ class ReportGenerator:
                 # Naming follows TICID-01_<date>_OAN-SPM-2m1-OPTICAM_<gp-rp-ip>_notes.txt
                 bands_suffix = "-".join(sorted(bands_data.keys()))
                 filename = f"{exofop_id}-01_{date_compact}_OAN-SPM-2m1-OPTICAM_{bands_suffix}_notes.txt"
-                out_dir = obj_folder / "exofop" / date / bands_suffix
+                out_dir = obj_folder / "exofop" / date
                 out_file = out_dir / filename
 
                 if out_file.exists():
