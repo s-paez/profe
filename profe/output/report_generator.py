@@ -124,6 +124,7 @@ class ReportGenerator:
             "tc": "[Predicted_Tc]",
             "depth": "[Predicted_Depth]",
             "duration": "[Predicted_Duration]",
+            "comment": "[Previous TTF comments]",
         }
 
         if dat_file.exists():
@@ -135,6 +136,7 @@ class ReportGenerator:
                     pred["tc"] = str(row["Mid(BJD)"])
                     pred["depth"] = str(row["Depth(ppt)"])
                     pred["duration"] = str(row["Duration(hrs)"])
+                    pred["comment"] = str(row["Comment"])
             except Exception as e:
                 logger.error(f"Error reading predicted metrics from {dat_file}: {e}")
 
@@ -212,13 +214,32 @@ class ReportGenerator:
             f"{m_ref['shift_y_max']:.4f}" if "shift_y_max" in m_ref else "[Y_max]"
         )
 
+        # Timing analysis for Interpretation
+        interpretation_text = ""
+        try:
+            # Check if predicted tc is a number
+            pred_tc_val = float(predicted["tc"])
+            # Get measured Tc from first band if possible
+            first_m = bands_data[bands_present[0]]
+            if "tc" in first_m:
+                meas_tc_val = float(first_m["tc"])
+                diff_min = (meas_tc_val - pred_tc_val) * 24 * 60
+                direction = "after" if diff_min > 0 else "before"
+                interpretation_text = f"A transit was observed {direction} the predicted one with a difference of {abs(diff_min):.2f} minutes."
+        except (ValueError, TypeError):
+            interpretation_text = "[Timing analysis pending]"
+
         template = f"""{exofop_id} (TOI {target_name}) on UT{date_dots} from {EXPECTED_OBS} in {band_str}
 
 {OBSERVERS}/{EXPECTED_OBS} observed a full transit on {date} in {band_str} and detected a {depth_lines[0].split(": ")[1] if depth_lines else "[Depth]"} event using uncontaminated {ap_line} target apertures. [(Rp/R*)^2 (from AIJ analysis): {rprs2_lines[0].split(": ")[1] if rprs2_lines else "[RpRs2]"}]
 
 1.  GOAL(S):
+    [] Analyze if the transit is on the target star
+    [] Analyze the transit chromaticity
+    [] Analyze the transit timing
 
 2.  INTERPRETATION OF RESULTS:
+    {interpretation_text}
 
 
 3.  APERTURE RADIUS: {ap_line}
@@ -248,7 +269,7 @@ class ReportGenerator:
 
     Detrend parameters: [e.g., AIRMASS, X(FITS)_T1, etc.]
 
-8. PREVIOUS TTF COMMENTS: [Copy and paste the latest comments from the TESS Transit Finder (TTF) for this target here]
+8. PREVIOUS TTF COMMENTS: {predicted["comment"]}
 """
         return template
 
@@ -295,8 +316,9 @@ class ReportGenerator:
                     metrics = self._extract_measurement_metrics(mf, band)
                     aij_dir = obj_folder / "exofop" / date / "AIJ" / band
                     fit_metrics = self._extract_fit_metrics(aij_dir)
-                    metrics.update(fit_metrics)
-                    bands_data[band] = metrics
+                    if fit_metrics:
+                        metrics.update(fit_metrics)
+                        bands_data[band] = metrics
 
                 if not bands_data:
                     continue
