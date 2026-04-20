@@ -27,6 +27,7 @@ from .correlated_noise import TimeAveragingPlotter
 from .field_view import FieldViewPlotter
 from .light_curves import LightCurvePlotter
 from .seeing_profile import SeeingProfilePlotter
+from .transit_info import TransitDataManager
 
 # Make the logs dir
 os.makedirs("logs", exist_ok=True)
@@ -78,6 +79,9 @@ def run_output() -> None:
 
     astrometry_solver: AstrometrySolver = AstrometrySolver()
     astrometry_solver.run()
+
+    transit_manager: TransitDataManager = TransitDataManager()
+    transit_manager.run()
 
 
 if __name__ == "__main__":
