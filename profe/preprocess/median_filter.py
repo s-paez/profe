@@ -143,9 +143,29 @@ class MedianFilter:
             4. Log a summary of the operation.
         """
         args: list = []
+        skipped_targets: set = set()
 
         for dirpath, _, filenames in os.walk(self.data_dir):
             parts = os.path.relpath(dirpath, self.data_dir).split(os.sep)
+            if len(parts) < 1 or parts[0] == ".":
+                continue
+
+            target = parts[0]
+            if target in skipped_targets:
+                continue
+
+            # Check if corrected folder exists for this target
+            corrected_dir_name = f"corrected_{self.window_size}x{self.window_size}"
+            corrected_path = os.path.join(self.data_dir, target, corrected_dir_name)
+
+            if os.path.exists(corrected_path):
+                logger.info(
+                    f"Target '{target}' already has a {corrected_dir_name} folder. "
+                    "Skipping median filter for this target."
+                )
+                skipped_targets.add(target)
+                continue
+
             if len(parts) < 3 or parts[1] != "raw":
                 continue
 
@@ -155,13 +175,12 @@ class MedianFilter:
                 if filename.endswith(self.extensions):
                     image_path: str = os.path.join(dirpath, filename)
 
-                    target = parts[0]
                     date_sub_path = os.path.join(*parts[2:])
 
                     output_folder: str = os.path.join(
                         self.data_dir,
                         target,
-                        f"corrected_{self.window_size}x{self.window_size}",
+                        corrected_dir_name,
                         date_sub_path,
                     )
                     output_path: str = os.path.join(output_folder, filename)
