@@ -67,6 +67,7 @@ class ReportGenerator:
         """Extract Depth, Tc, Rp/Rs, RMS, and Duration from fitpanel files."""
         metrics: dict[str, Any] = {}
         if not aij_dir.exists():
+            logger.warning(f"AIJ directory not found: {aij_dir}")
             return metrics
 
         fit_files = [
@@ -76,6 +77,7 @@ class ReportGenerator:
         ]
 
         if not fit_files:
+            logger.warning(f"No fitpanel files found in {aij_dir}")
             return metrics
 
         fit_file = fit_files[0]
