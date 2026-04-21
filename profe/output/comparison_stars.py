@@ -150,8 +150,27 @@ class ComparisonStarsPlotter:
         bin_width_minutes: float,
     ) -> tuple[NDArray, NDArray, NDArray]:
         """Bin time-series data into fixed-width time bins."""
+        # Filter NaNs to avoid ValueError in np.arange and logic errors
+        mask_nan = ~np.isnan(time) & ~np.isnan(col)
+        time = time[mask_nan]
+        col = col[mask_nan]
+        err_col = err_col[mask_nan]
+
+        if len(time) == 0:
+            return np.array([]), np.array([]), np.array([])
+
         bin_width_days: float = bin_width_minutes / (24 * 60)
-        bins = np.arange(time.min(), time.max() + bin_width_days, bin_width_days)
+        t_min, t_max = np.min(time), np.max(time)
+
+        # Ensure we have a valid range
+        if t_min == t_max:
+            return (
+                np.array([t_min]),
+                np.array([np.nanmean(col)]),
+                np.array([np.nanmean(err_col)]),
+            )
+
+        bins = np.arange(t_min, t_max + bin_width_days, bin_width_days)
         bin_centers = 0.5 * (bins[1:] + bins[:-1])
         bin_vals = np.zeros(len(bin_centers))
         bin_errs = np.zeros(len(bin_centers))
@@ -223,7 +242,7 @@ class ComparisonStarsPlotter:
         colors = [cmap(i / max(n_stars - 1, 1) * 0.7) for i in range(n_stars)]
 
         time_col = "BJD_TDB"
-        t0 = df[time_col].values[0]
+        t0 = float(np.nanmin(df[time_col].values))
 
         fig, axs = plt.subplots(
             6,
@@ -334,7 +353,13 @@ class ComparisonStarsPlotter:
         # ── Panel 5: Centroid Shift ──────────────────────────────────────
         time_xy = df[time_col].values - t0
         x_fits = df["X(FITS)_T1"]
-        x_rel = x_fits - x_fits.iloc[0]
+        # Find first non-NaN indices
+        x_first = x_fits.dropna().iloc[0] if not x_fits.dropna().empty else 0
+        x_rel = x_fits - x_first
+
+        y_fits = df["Y(FITS)_T1"]
+        y_first = y_fits.dropna().iloc[0] if not y_fits.dropna().empty else 0
+        y_rel = y_fits - y_first
         axs[5].plot(
             time_xy,
             x_rel,
@@ -346,8 +371,6 @@ class ComparisonStarsPlotter:
             fillstyle="none",
         )
 
-        y_fits = df["Y(FITS)_T1"]
-        y_rel = y_fits - y_fits.iloc[0]
         axs[5].plot(
             time_xy,
             y_rel,
