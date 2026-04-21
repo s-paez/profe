@@ -30,14 +30,6 @@ from .report_generator import ReportGenerator
 from .seeing_profile import SeeingProfilePlotter
 from .transit_info import TransitDataManager
 
-# Make the logs dir
-os.makedirs("logs", exist_ok=True)
-# Config thr logging
-logging.basicConfig(
-    filename="logs/profe_out.log",
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s: %(message)s",
-)
 
 logger = logging.getLogger(__name__)
 

@@ -42,14 +42,6 @@ def run_preprocess(
     os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
     os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-    # Make the logs dir
-    os.makedirs("logs", exist_ok=True)
-    # Config thr logging
-    logging.basicConfig(
-        filename="logs/profe_pre.log",
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s: %(message)s",
-    )
 
     logger = logging.getLogger(__name__)
 

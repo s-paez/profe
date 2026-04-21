@@ -7,6 +7,8 @@ Provides a unified interface for all pipeline stages.
 import argparse
 import sys
 
+from profe.logger import setup_logging
+
 
 def print_manual() -> None:
     """Prints the PROFE manual in terminal."""
@@ -122,6 +124,15 @@ def main() -> None:
         parser.error("-c/--cores can only be used with preprocessing (-p, --organice, --filter) steps.")
 
     if args.preprocess or args.organice or args.filter:
+        # Determine command name for logging
+        cmd_name = "preprocess"
+        if args.organice:
+            cmd_name = "organize"
+        elif args.filter:
+            cmd_name = "filter"
+
+        setup_logging(cmd_name)
+
         try:
             from profe.preprocess.cli import run_preprocess
 
@@ -143,6 +154,8 @@ def main() -> None:
             sys.exit(1)
 
     elif args.output:
+        setup_logging("output")
+
         try:
             from profe.output.cli import run_output
 
