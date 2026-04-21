@@ -168,8 +168,23 @@ class LightCurvePlotter:
     def _bin_data(
         self, time: NDArray, col: NDArray, err_col: NDArray, bin_width_minutes: float
     ) -> tuple[NDArray, NDArray, NDArray]:
+        # Filter NaNs to avoid ValueError in np.arange and logic errors
+        mask_nan = ~np.isnan(time) & ~np.isnan(col)
+        time = time[mask_nan]
+        col = col[mask_nan]
+        err_col = err_col[mask_nan]
+
+        if len(time) == 0:
+            return np.array([]), np.array([]), np.array([])
+
         bin_width_days: float = bin_width_minutes / (24 * 60)
-        bins = np.arange(time.min(), time.max() + bin_width_days, bin_width_days)
+        t_min, t_max = np.min(time), np.max(time)
+
+        # Ensure we have a valid range
+        if t_min == t_max:
+            return np.array([t_min]), np.array([np.mean(col)]), np.array([np.mean(err_col)])
+
+        bins = np.arange(t_min, t_max + bin_width_days, bin_width_days)
         bin_centers = 0.5 * (bins[1:] + bins[:-1])
         bin_vals = np.zeros(len(bin_centers))
         bin_errs = np.zeros(len(bin_centers))
@@ -259,7 +274,8 @@ class LightCurvePlotter:
 
         first_band = list(data.keys())[0]
         df_first = data[first_band]
-        t0 = float(df_first[time_col].to_numpy()[0])
+        # Use nanmin for robust t0
+        t0 = float(np.nanmin(df_first[time_col].to_numpy()))
         time_mid = np.nanmedian(df_first[time_col].to_numpy() - t0)
 
         # 1. Light curve panel
@@ -443,7 +459,7 @@ class LightCurvePlotter:
         exofop_obj = get_exofop_id(obj)
 
         t = df[time_col].to_numpy() - t0
-        med_f = float(df[flux_col].median())
+        med_f = float(np.nanmedian(df[flux_col].to_numpy()))
         f = df[flux_col].to_numpy() / med_f
         e = df[err_col].to_numpy() / med_f
 
@@ -582,7 +598,7 @@ class LightCurvePlotter:
         err_col = "rel_flux_err_T1"
 
         first_band = list(data.keys())[0]
-        t0 = data[first_band][time_col].values[0]
+        t0 = np.nanmin(data[first_band][time_col].values)
 
         for i, (band, df) in enumerate(data.items()):
             t = df[time_col].values - t0
@@ -730,14 +746,17 @@ class LightCurvePlotter:
                                 obj_folder,
                             )
 
-                # Copy measurements to exofop
-                for f in meas_files:
-                    stem = f.stem
-                    band = normalize_band(stem.split("_")[-1])
+                # Save measurements to exofop as .tbl (tab-separated, latin1)
+                for filtr, df_band in data.items():
                     exofop_obj = get_exofop_id(obj)
                     dest = exofop_path(
-                        obj_folder, date, exofop_obj, band, "_measurements", f.suffix
+                        obj_folder,
+                        date,
+                        exofop_obj,
+                        filtr,
+                        "_measurements",
+                        ".tbl",
                     )
                     dest.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(f, dest)
-                    self.logger.info(f"Copied {f.name} to {dest}")
+                    df_band.to_csv(dest, sep="\t", index=False, encoding="latin1")
+                    self.logger.info(f"Saved {filtr} measurements to {dest} as .tbl")
