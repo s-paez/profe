@@ -31,7 +31,6 @@ def setup_logging(command_name: str) -> None:
         format="%(asctime)s %(levelname)s: %(message)s",
         handlers=[
             logging.FileHandler(log_filename),
-            logging.StreamHandler(),
         ],
         force=True,
     )
