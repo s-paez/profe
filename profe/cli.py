@@ -19,14 +19,22 @@ def print_manual() -> None:
 
     \033[1mOPTIONS:\033[0m
         \033[1m-p, --preprocess\033[0m
-            Runs the EXOPLANET photometry preprocessing stage.
+            Runs the entire preprocessing pipeline.
             This step updates FITS headers (Julian Dates), organizes the
             files by type (Dark, Flat, Science), creates a summary.dat,
             and applies a median filter to the image data.
 
-        \033[1m-n CORES, --cores CORES\033[0m
+        \033[1m--organice\033[0m
+            Runs ONLY the reorganization stage. Updates FITS headers (JD and
+            UTMIDDLE), organizes files, and creates summary.dat.
+
+        \033[1m--filter\033[0m
+            Runs ONLY the median filter stage. Skips processing if the
+            corrected output directory already exists.
+
+        \033[1m-c CORES, --cores CORES\033[0m
             Specifies the number of CPU cores to use during preprocessing.
-            (e.g., profe -p -n 4). Defaults to all available cores.
+            (e.g., profe -p -c 4). Defaults to all available cores.
 
         \033[1m-o, --output\033[0m
             Runs the post-processing and output generation stage.
@@ -44,10 +52,16 @@ def print_manual() -> None:
         1. Preprocess data using all available processor cores:
            $ profe -p
 
-        2. Preprocess data restricting the process to 4 cores:
+        2. Run ONLY the reorganization and header update:
+           $ profe --organice
+
+        3. Run ONLY the median filter step:
+           $ profe --filter
+
+        4. Preprocess data restricting the process to 4 cores:
            $ profe -p -c 4
 
-        3. Generate scientific outputs and plots from photometric tables:
+        5. Generate scientific outputs and plots from photometric tables:
            $ profe -o
     """
     print(man_text)
@@ -63,13 +77,23 @@ def main() -> None:
         add_help=True,
     )
 
-    # Mutually exclusive group: user can't use -p and -o together
+    # Mutually exclusive group: user can't use -p, -o, --organice, or --filter together
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         "-p",
         "--preprocess",
         action="store_true",
-        help="Run the preprocessing pipeline.",
+        help="Run the entire preprocessing pipeline (organize + filter).",
+    )
+    group.add_argument(
+        "--organice",
+        action="store_true",
+        help="Run only the reorganization and JD/UTMIDDLE update stage.",
+    )
+    group.add_argument(
+        "--filter",
+        action="store_true",
+        help="Run only the median filter stage.",
     )
     group.add_argument(
         "-o",
@@ -83,7 +107,7 @@ def main() -> None:
         "--cores",
         type=int,
         default=None,
-        help="Number of CPU cores to use for preprocessing (-p). Defaults to all available.",
+        help="Number of CPU cores to use for preprocessing. Defaults to all available.",
     )
 
     # If no arguments provided, show standard help
@@ -93,15 +117,27 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # -n is only used with -p
+    # -c is only used with preprocessing steps
     if args.output and args.cores is not None:
-        parser.error("-c/--cores can only be used with the preprocessing (-p) step.")
+        parser.error("-c/--cores can only be used with preprocessing (-p, --organice, --filter) steps.")
 
-    if args.preprocess:
+    if args.preprocess or args.organice or args.filter:
         try:
             from profe.preprocess.cli import run_preprocess
 
-            run_preprocess(cores=args.cores)
+            # Logic:
+            # -p (preprocess): do_organize=True, do_filter=True
+            # --organice: do_organize=True, do_filter=False
+            # --filter: do_organize=False, do_filter=True
+
+            do_organize = args.preprocess or args.organice
+            do_filter = args.preprocess or args.filter
+
+            run_preprocess(
+                cores=args.cores,
+                do_organize=do_organize,
+                do_filter=do_filter
+            )
         except ImportError as e:
             print(f"Error importing preprocessing module: {e}")
             sys.exit(1)

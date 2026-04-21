@@ -14,7 +14,11 @@ from .fits_processor import FitsProcessor
 from .median_filter import MedianFilter
 
 
-def run_preprocess(cores: int | None = None) -> None:
+def run_preprocess(
+    cores: int | None = None,
+    do_organize: bool = True,
+    do_filter: bool = True,
+) -> None:
     """
     Executes the preprocessing pipeline.
 
@@ -51,13 +55,15 @@ def run_preprocess(cores: int | None = None) -> None:
 
     logger.info(f"Running PROFE-prepocess with {cores if cores else 'all'} cores")
 
-    org: FitsProcessor = FitsProcessor(n_processes=cores)
-    org.update_jd_headers()
-    org.organize_files()
-    org.generate_counts()
+    if do_organize:
+        org: FitsProcessor = FitsProcessor(n_processes=cores)
+        org.update_jd_headers()
+        org.organize_files()
+        org.generate_counts()
 
-    mf = MedianFilter(n_processes=cores)
-    mf.apply_filter()
+    if do_filter:
+        mf = MedianFilter(n_processes=cores)
+        mf.apply_filter()
 
 
 if __name__ == "__main__":
