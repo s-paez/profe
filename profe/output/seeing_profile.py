@@ -67,14 +67,32 @@ class SeeingProfilePlotter:
             )
             return
 
-        with fits.open(fits_cands[0]) as hdul:
+        selected_fits = None
+        target_row = None
+
+        if "Label" in data.columns:
+            for cand in fits_cands:
+                mask = data["Label"].astype(str).str.contains(cand.name, regex=False)
+                if mask.any():
+                    selected_fits = cand
+                    target_row = data[mask].iloc[0]
+                    break
+
+        if selected_fits is None:
+            self.logger.warning(
+                f"Could not find a match in measurements for any FITS file in {fits_dir}. Using first FITS."
+            )
+            selected_fits = fits_cands[0]
+            target_row = data.iloc[0]
+
+        with fits.open(selected_fits) as hdul:
             vis_data = hdul[0].data.astype(float)  # type: ignore[missing-attribute]
 
         # Extract star centroids
         cent: dict = {}
         for col in data.columns:
             if col.startswith("X(FITS)") or col.startswith("Y(FITS)"):
-                cent[col] = int(data[col].iloc[0])
+                cent[col] = int(target_row[col])
         names: set = {c.split("_")[1] for c in cent if "_" in c}
         stars: dict = {
             name: (cent[f"X(FITS)_{name}"], cent[f"Y(FITS)_{name}"]) for name in names
@@ -83,9 +101,9 @@ class SeeingProfilePlotter:
         # Photometry parameters
         exofop_obj = get_exofop_id(target_name)
         title_str = exofop_title(exofop_obj, date_folder.name, band)
-        source: int = int(data["Source_Radius"].iloc[0])
-        sky_min: float = float(data["Sky_Rad(min)"].iloc[0])
-        sky_max: float = float(data["Sky_Rad(max)"].iloc[0])
+        source: int = int(target_row["Source_Radius"])
+        sky_min: float = float(target_row["Sky_Rad(min)"])
+        sky_max: float = float(target_row["Sky_Rad(max)"])
         radius: np.ndarray = np.arange(int(sky_max) + 1)
 
         # Radial profile (choose target or first star)
