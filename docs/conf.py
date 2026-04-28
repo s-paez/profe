@@ -18,13 +18,21 @@ autodoc_mock_imports = [
     "photutils",
     "matplotlib",
     "mc3",
+    "scipy",
+    "numpy",
+    "pandas",
+    "tqdm",
+    "astroquery",
+    "bs4",
+    "beautifulsoup4",
+    "requests",
 ]
 
 project = "profe"
-copyright = "2025, S. Paez, Y. Gómez Maqueo Chew, L. H. Hebb"
+copyright = "2026, S. Paez, Y. Gómez Maqueo Chew, L. H. Hebb"
 author = "S. Paez, Y. Gómez Maqueo Chew, L. H. Hebb"
 root_doc = "index"
-release = "0.1.0"
+release = "0.1.4"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
