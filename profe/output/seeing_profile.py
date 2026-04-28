@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Generate radial profile plots (seeing profile) for EXOFOP submission.
 

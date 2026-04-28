@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Time-averaging noise analysis for light curves.
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Generate aperture visualization plots (field view) for EXOFOP submission.
 

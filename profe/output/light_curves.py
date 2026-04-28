@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Light curve plotting and CSV export for AIJ measurements.
 

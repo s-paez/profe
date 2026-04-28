@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Comparison star light curve plotting for AIJ measurements.
 

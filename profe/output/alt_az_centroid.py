@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Alt-Az trajectory and star-centroid movement plotting.
 
