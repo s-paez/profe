@@ -216,6 +216,26 @@ class ReportGenerator:
             f"{m_ref['shift_y_max']:.4f}" if "shift_y_max" in m_ref else "[Y_max]"
         )
 
+        # Multi-band summary for the intro line
+        depth_items = []
+        rprs2_items = []
+        for b in bands_present:
+            m = bands_data[b]
+            d_val = f"{m['depth_ppt']:.2f} ppt" if "depth_ppt" in m else "[Depth]"
+            r_val = f"{m['rprs2']:.4f}" if "rprs2" in m else "[RpRs2]"
+            depth_items.append(f"{d_val} in {b}")
+            rprs2_items.append(f"{r_val} in {b}")
+
+        if len(depth_items) > 1:
+            depth_summary = ", ".join(depth_items[:-1]) + (" and " if len(depth_items) == 2 else ", and ") + depth_items[-1]
+            rprs2_summary = ", ".join(rprs2_items[:-1]) + (" and " if len(rprs2_items) == 2 else ", and ") + rprs2_items[-1]
+        elif depth_items:
+            depth_summary = depth_items[0]
+            rprs2_summary = rprs2_items[0]
+        else:
+            depth_summary = "[Depth]"
+            rprs2_summary = "[RpRs2]"
+
         # Timing analysis for Interpretation
         interpretation_text = ""
         try:
@@ -233,7 +253,7 @@ class ReportGenerator:
 
         template = f"""{exofop_id} (TOI {target_name}) on UT{date_dots} from {EXPECTED_OBS} in {band_str}
 
-{OBSERVERS}/{EXPECTED_OBS} observed a full transit on {date} in {band_str} and detected a {depth_lines[0].split(": ")[1] if depth_lines else "[Depth]"} event using uncontaminated {ap_line} target apertures. [(Rp/R*)^2 (from AIJ analysis): {rprs2_lines[0].split(": ")[1] if rprs2_lines else "[RpRs2]"}]
+{OBSERVERS}/{EXPECTED_OBS} observed a full transit on {date} in {band_str} and detected a transit event with depth of {depth_summary} using uncontaminated {ap_line} target apertures. [(Rp/R*)^2 (from AIJ analysis): {rprs2_summary}]
 
 1.  GOAL(S):
     [] Analyze if the transit is on the target star
