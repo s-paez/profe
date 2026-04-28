@@ -3,7 +3,7 @@
 
 #### Reduction pipeline for OPTICAM photometry of exoplanets.
 
-A Python-based pipeline to automate preprocessing and postprocessing of data acquired with the OPTICAM instrument on the 2.1 m telescope at OAN‑SPM, aimed for implementing the data reduction method proposed by [Paez et. al (2026)](https://doi.org/10.1093/rasti/rzag021).
+A Python-based pipeline to automate preprocessing and postprocessing of data acquired with the OPTICAM instrument on the 2.1 m telescope at OAN‑SPM, aimed for implementing the data reduction method proposed by [Paez et. al (2026)](https://doi.org/10.1093/rasti/rzag021).
 
 ---
 
@@ -11,100 +11,143 @@ A Python-based pipeline to automate preprocessing and postprocessing of data acq
 
 * **Preprocessing** (`profe -p`):
 
-  * Organize and standardize FITS files.
-  * Update headers and compute Julian Date.
-  * Apply median filter
+  * Organize and standardize FITS files by target and date.
+  * Update headers: compute and insert `JD` and `UTMIDDLE` keywords.
+  * Apply a 3×3 median filter for hot-pixel correction.
+  * Generate an image-count summary (`images_summary.dat`).
+
 * **Postprocessing** (`profe -o`):
-  * Generated multi-band binned light curves with RMS measurements (PDF & CSV).
-  * Time-averaging noise plots (Red vs White noise characterization).
-  * Altitude-Azimuth trajectory and Centroid movement plots.
-  * ExoFOP-standardized products:
-    * Standardized single-band Light Curves (PNG).
-    * Aperture visualization (Field of View) and Radial Profiles.
-    * Light curves for comparison stars.
-    * Automated WCS solving via Astrometry.net.
-    * Integrated archival of measurement tables.
+  * Multi-band binned light curves with RMS measurements (PDF & CSV).
+  * Single-band ExoFOP-standardized light curve plots (PNG).
+  * Time-averaging noise plots (Red vs White noise characterization via MC3).
+  * Altitude–Azimuth trajectory plots.
+  * Centroid movement plots.
+  * Aperture visualization (Field of View) plots.
+  * Radial (seeing) profile plots.
+  * Comparison star light curves (up to 6 stars per band).
+  * Automated WCS solving via Astrometry.net (source list method).
+  * Transit timing data retrieval from TESS Transit Finder (TTF).
+  * Consolidated ExoFOP notes report generation.
+  * Archival copy of measurement tables per band.
 
 ---
 
 ## Requirements
 Dependencies defined in `pyproject.toml`:
 
-* Python ($\geq 3.8.20$, $\leq 3.12$)
-* astropy ($5.3.2$)
-* scipy ($\geq 1.10$, $<2.0$)
-* matplotlib ($\geq3.10.3$, $<4.0.0$)
-* tqdm ($\geq 4.67.1$, $<5.0.0$)
-* pandas ($\geq 2.3.1$, $<3.0.0$)
-* mc3 ($\geq 3.2.1$, $<4.0.0$)
-* photutils ($\geq 2.2.0$, $<3.0.0$)
-* numpy ($\geq 1.24$, $<2.0$)
-* astroquery ($\geq 0.4.7$)
+* Python (≥3.11, <3.12)
+* astropy (5.3.2)
+* scipy (≥1.10, <2.0)
+* matplotlib (≥3.10.3, <4.0.0)
+* tqdm (≥4.67.1, <5.0.0)
+* pandas (≥2.3.1, <3.0.0)
+* mc3 (≥3.2.1, <4.0.0)
+* photutils (≥2.2.0, <3.0.0)
+* numpy (≥1.24, <2.0)
+* astroquery (≥0.4.7)
+* beautifulsoup4 (≥4.12.0)
+* requests (≥2.31.0)
 
 ### External Setup
-For automated **WCS Solving**, you must provide an [Astrometry.net](https://nova.astrometry.net/) API key:
-1. Create a file named `.astrometry_key` at the root of your project.
+
+**WCS Solving** — Provide an [Astrometry.net](https://nova.astrometry.net/) API key:
+1. Create a file named `.astrometry_key` at the root of your working directory.
 2. Paste your 16-character API key inside the file.
+
+**Transit Timing (TTF)** — Provide TESS Transit Finder credentials:
+1. Create a file named `.ttf_credentials` at the root of your working directory.
+2. Write your credentials in the format `username:password`.
 
 ---
 
 ## Installation
 
-Install from the project root:
+Install from PyPI:
 
 ```bash
 pip install profe
 ```
 
-For a development environment (include testing and linting tools):
+For a development environment (includes testing, linting, and profiling tools):
 
 ```bash
 git clone https://github.com/s-paez/profe.git
 cd profe
-pip install .[dev]
+pip install -e ".[dev]"
 ```
 
 ---
 
 ## Usage
+
+### CLI Reference
+
+PROFE provides a single entry point with mutually exclusive commands:
+
+| Command | Description |
+|---|---|
+| `profe -p` | Run the **full preprocessing** pipeline (organize + median filter). |
+| `profe --organice` | Run **only** the file reorganization and header update stage. |
+| `profe --filter` | Run **only** the median filter stage. Skips if `corrected_3x3/` already exists. |
+| `profe -o` | Run the **full postprocessing** and output generation pipeline. |
+| `profe man` | Display the detailed built-in manual. |
+| `profe -h` | Show the quick-reference help message. |
+
+**Optional flags:**
+
+| Flag | Description |
+|---|---|
+| `-c CORES` / `--cores CORES` | Number of CPU cores for preprocessing (default: all available). Only valid with `-p`, `--organice`, or `--filter`. |
+
 ### Preprocessing
 
-**PROFE** recursively searches for original FITS files inside a `data/` directory relative to where the command is executed. The pipeline organizes them, updates FITS headers (Julian Date), and applies median filter corrections.
-
-To execute the preprocessing:
+**PROFE** recursively searches for original FITS files inside a `data/` directory relative to where the command is executed. The pipeline organizes them, updates FITS headers (Julian Date and UTMIDDLE), and applies median filter corrections.
 
 ```bash
+# Full preprocessing with all CPU cores
 profe -p
-```
 
-By default, the preprocessing uses all available CPU cores. You can limit the number of cores using the `-c` (or `--cores`) flag:
-
-```bash
-# Use only 4 cores
+# Full preprocessing with limited cores
 profe -p -c 4
+
+# Only reorganize files and update headers (no filter)
+profe --organice
+
+# Only apply the median filter (skips if corrected_3x3/ already exists)
+profe --filter
 ```
+
+#### Preprocessing Steps
+
+1. **Header Update** — Computes `JD` (Julian Date at start) and `UTMIDDLE` (ISO mid-exposure) from existing `UT` and `EXPOSURE` keywords. Skips files already tagged with a PROFE HISTORY entry.
+2. **File Organization** — Sorts FITS files into `organized_data/{TARGET}/raw/{DATE}/` subdirectories based on `OBJECT` and `DATE-OBS` header keywords. Creates `measurements/`, `lcs/`, and `exofop/` directories for science targets.
+3. **Summary Generation** — Creates `logs/images_summary.dat` with image counts per target and date.
+4. **Median Filter** — Applies a 3×3-pixel median filter (hot-pixel correction as proposed by Paez et al. 2026) and saves corrected images under `corrected_3x3/`. Adds HISTORY entries to both raw and filtered FITS headers to prevent reprocessing.
+
 
 #### Output Directory Structure
-After a successful preprocessing run, your pipeline translates the `data/` contents into a highly structured `organized_data/` hierarchy, mapping each FITS to its extracted `{TARGET}` and observation `{DATE}`:
+After a successful preprocessing run, the `data/` contents are translated into a structured `organized_data/` hierarchy:
 
 ```text
 organized_data/
 └── {TARGET}/
     ├── raw/
-    │   └── {DATE}/         <-- Original FITS (updated headers)
+    │   └── {DATE}/              ← Original FITS (updated headers)
     ├── corrected_3x3/
-    │   └── {DATE}/         <-- 3x3 median filter products
+    │   └── {DATE}/              ← 3×3 median filter products
     ├── measurements/
-    │   └── {DATE}/         <-- AIJ .tbl/.csv files (INPUT for -o)
+    │   └── {DATE}/              ← AIJ .tbl/.csv files (INPUT for -o)
     │       └── times/
-    │           └── times.csv <-- Optional time intervals
+    │           └── times.csv    ← Optional time intervals
     ├── lcs/
-    │   └── {DATE}/         <-- Normalized multi-band CSVs
+    │   └── {DATE}/              ← Normalized multi-band CSVs
     ├── plots/
-    │   └── {DATE}/         <-- Diagnostic PDFs and PNGs
+    │   └── {DATE}/              ← Diagnostic PDFs and PNGs
     └── exofop/
         └── {DATE}/
-            └── {band}/     <-- Standardized ExoFOP products
+            ├── {band}/          ← Standardized ExoFOP products
+            └── AIJ/
+                └── {band}/      ← AIJ fitpanel files for report generation
 ```
 
 ### AstroImageJ Integration
@@ -112,32 +155,70 @@ After preprocessing, perform photometry in AstroImageJ using the files in `corre
 
 **Requirements for Measurement Files:**
 * **Format**: `.tbl` (tab-separated) or `.csv` (comma-separated).
-* **Naming**: The filename must end with the band suffix (e.g., `myfile_gp.tbl`, `obs1_rp.csv`, or `data_i.tbl`). Supported bands: `g`, `gp`, `r`, `rp`, `i`, `ip`.
+* **Naming**: The filename must end with the band suffix (e.g., `myfile_gp.tbl`, `obs1_rp.csv`, or `data_ip.tbl`). Supported bands: `g`, `gp`, `r`, `rp`, `i`, `ip`.
 
 ### Optional: Time Averaging & RMS Intervals
 To define specific non-transit intervals for RMS calculation and noise analysis, create a `times/times.csv` file inside the date folder in `measurements/`:
 * **Columns**: `init_time`, `final_time` (in JD or BJD units).
-* **Usage**: If present, PROFE will use these intervals for legeng RMS calculations and the time-averaging diagnostic plots.
+* **Usage**: If present, PROFE will use these intervals for legend RMS calculations and the time-averaging diagnostic plots. If absent, PROFE creates an empty template automatically.
 
-### Outputs
+### Postprocessing
+
 Run the following to generate all scientific products:
 
 ```bash
 profe -o
 ```
 
+The postprocessing pipeline runs the following modules **sequentially**:
+
+| # | Module | Description |
+|---|---|---|
+| 1 | **AltAzGuidingPlotter** | Altitude–Azimuth polar plot and centroid displacement vs. time. |
+| 2 | **LightCurvePlotter** | Multi-band 6-panel diagnostic light curves (PDF) + per-band ExoFOP PNGs + normalized CSV. |
+| 3 | **TimeAveragingPlotter** | Red vs. white noise characterization using the MC3 time-averaging method (Cubillos et al. 2017). |
+| 4 | **FieldViewPlotter** | Aperture visualization: source and sky annuli overlaid on a calibrated FITS image. |
+| 5 | **SeeingProfilePlotter** | Radial brightness profile of the target star using `photutils.RadialProfile`. |
+| 6 | **ComparisonStarsPlotter** | 6-panel light curves for up to 6 comparison stars with sigma-clipped outlier removal. |
+| 7 | **AstrometrySolver** | WCS solving via Astrometry.net using local source detection (Background2D + segmentation). |
+| 8 | **TransitDataManager** | Retrieves predicted transit times from the TESS Transit Finder (TTF). |
+| 9 | **ReportGenerator** | Generates a consolidated ExoFOP notes text file with multi-band metrics. |
+
+Each module checks for existing outputs before running and **skips already-processed** (target, date, band) triples.
+
 #### Standardized ExoFOP Products
-All files in `exofop/{DATE}/{BAND}/` follow the standardized naming convention:
-`{TARGET}-01_{YYYYMMDD}_OAN-SPM-2m1-OPTICAM_{BAND}_{TYPE}.{EXT}`
+All files in `exofop/{DATE}/{BAND}/` follow the naming convention:
+`{TICID}-01_{YYYYMMDD}_OAN-SPM-2m1-OPTICAM_{BAND}_{TYPE}.{EXT}`
 
 | TYPE | Description |
 |---|---|
-| `_lightcurve` | High-resolution PNG plot of the light curve. |
+| `_lightcurve` | High-resolution 6-panel PNG plot of the light curve. |
 | `_field` | Science image showing source and sky apertures. |
 | `_seeing-profile` | Radial profile of the target star. |
-| `_WCS` | WCS-solved FITS header integrated into the first science image. |
+| `_WCS` | WCS-solved FITS with astrometric header. |
 | `_compstar-lightcurves` | Diagnostic plot of up to 6 comparison star light curves. |
-| `_measurements` | A copy of the original photometry table used. |
+| `_measurements` | A copy of the original photometry table (.tbl). |
+
+Additional products at the date level (`exofop/{DATE}/`):
+
+| File | Description |
+|---|---|
+| `*_transit_times.dat` | Predicted transit ingress, mid, and egress times from TTF. |
+| `*_notes.txt` | Consolidated ExoFOP report with multi-band metrics and timing analysis. |
+
+### Logging
+
+All pipeline runs generate timestamped log files in the `logs/` directory:
+
+```text
+logs/
+├── profe_preprocess_20260420_143022.log
+├── profe_organize_20260420_150112.log
+├── profe_filter_20260420_151530.log
+└── profe_output_20260420_160045.log
+```
+
+Each execution creates a new log file to prevent overwriting previous records.
 
 ### Manual
 
@@ -147,7 +228,35 @@ To see the complete detailed manual and arguments at any time, run:
 profe man
 ```
 
-### Profiling
+---
+
+## Architecture
+
+```text
+profe/
+├── cli.py                  ← Central CLI entry point (argparse)
+├── logger.py               ← Timestamped logging configuration
+├── preprocess/
+│   ├── cli.py              ← Preprocessing orchestrator
+│   ├── fits_processor.py   ← Header update, file organization, summary
+│   └── median_filter.py    ← 3×3 median filter (multiprocessing)
+└── output/
+    ├── cli.py              ← Postprocessing orchestrator
+    ├── naming.py           ← ExoFOP naming conventions & TOI→TIC resolution
+    ├── alt_az_centroid.py   ← Altitude–Azimuth & centroid plots
+    ├── light_curves.py      ← Multi-band light curves (PDF/PNG/CSV)
+    ├── correlated_noise.py  ← Time-averaging red noise analysis
+    ├── field_view.py        ← Aperture visualization plots
+    ├── seeing_profile.py    ← Radial profile plots
+    ├── comparison_stars.py  ← Comparison star light curves
+    ├── astrometry_out.py    ← WCS solving via Astrometry.net
+    ├── transit_info.py      ← TTF transit data retrieval
+    └── report_generator.py  ← Consolidated ExoFOP notes
+```
+
+---
+
+## Profiling
 To analyze the performance of the pipeline, you must have the development dependencies installed. Additionally, if you are testing this over a specific data directory, it is recommended to activate the virtual environment so the commands work globally:
 
 ```bash
