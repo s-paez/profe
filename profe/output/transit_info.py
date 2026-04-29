@@ -199,7 +199,7 @@ class TransitDataManager:
 
                     t1 = float(t1_str)
                     if t1 < 1000000:
-                        t1 += 2460000
+                        t1 += 2450000
 
                     t1_int = int(t1)
 
@@ -211,7 +211,7 @@ class TransitDataManager:
                             return val
                         val = float(part)
                         if val < 1000000:
-                            val += 2460000
+                            val += 2450000
                         return val
 
                     t2 = parse_part(t2_str, t1)
