@@ -22,8 +22,9 @@ CLI Reference
      - Run **only** the file reorganization and header update stage.
    * - ``profe --filter``
      - Run **only** the median filter stage. Skips if ``corrected_3x3/`` exists.
-   * - ``profe -o``
+   * - ``profe -o [TARGET]``
      - Run the **full postprocessing** and output generation pipeline.
+       Optionally specify a target name to process only that target.
    * - ``profe man``
      - Display the detailed built-in manual.
    * - ``profe -h``
@@ -40,6 +41,9 @@ CLI Reference
    * - ``-c CORES`` / ``--cores CORES``
      - Number of CPU cores for preprocessing (default: all available).
        Only valid with ``-p``, ``--organice``, or ``--filter``.
+   * - ``-o TARGET``
+     - When a target name is provided (e.g., ``profe -o "TOI-1234"``), only
+       that target is processed. Without a target, all targets are processed.
 
 
 Preprocessing
@@ -146,7 +150,11 @@ Run the following to generate all scientific products:
 
 .. code-block:: bash
 
+   # Generate outputs for all targets
    profe -o
+
+   # Generate outputs for a specific target only
+   profe -o "TOI-1234"
 
 The postprocessing pipeline runs **9 modules sequentially**:
 

@@ -89,7 +89,7 @@ PROFE provides a single entry point with mutually exclusive commands:
 | `profe -p` | Run the **full preprocessing** pipeline (organize + median filter). |
 | `profe --organice` | Run **only** the file reorganization and header update stage. |
 | `profe --filter` | Run **only** the median filter stage. Skips if `corrected_3x3/` already exists. |
-| `profe -o` | Run the **full postprocessing** and output generation pipeline. |
+| `profe -o [TARGET]` | Run the **full postprocessing** and output generation pipeline. Optionally specify a target name to process only that target. |
 | `profe man` | Display the detailed built-in manual. |
 | `profe -h` | Show the quick-reference help message. |
 
@@ -98,6 +98,7 @@ PROFE provides a single entry point with mutually exclusive commands:
 | Flag | Description |
 |---|---|
 | `-c CORES` / `--cores CORES` | Number of CPU cores for preprocessing (default: all available). Only valid with `-p`, `--organice`, or `--filter`. |
+| `-o TARGET` | When a target name is provided (e.g., `profe -o "TOI-1234"`), only that target is processed. Without a target, all targets are processed. |
 
 ### Preprocessing
 
@@ -167,7 +168,11 @@ To define specific non-transit intervals for RMS calculation and noise analysis,
 Run the following to generate all scientific products:
 
 ```bash
+# Generate outputs for all targets
 profe -o
+
+# Generate outputs for a specific target only
+profe -o "TOI-1234"
 ```
 
 The postprocessing pipeline runs the following modules **sequentially**:
