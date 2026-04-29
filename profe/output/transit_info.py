@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import requests
 from bs4 import BeautifulSoup
 from bs4.element import Tag
-from .naming import get_exofop_id, get_tic_from_toi
+from .naming import get_exofop_id, get_tic_from_toi, get_utc_date_from_bjd
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +272,8 @@ class TransitDataManager:
                 # Standard name: target-01_yyyymmdd_OAN-SPM-2m1-OPTICAM_transit_times.dat
                 # Note: naming.py handles the compact date and target standardization.
                 exofop_id = get_exofop_id(target_name)  # e.g. TIC86263325
-                date_compact = obs_date.replace("-", "")
+                utc_date = get_utc_date_from_bjd(date_folder)
+                date_compact = utc_date.replace("-", "")
 
                 # Place at the date level in exofop folder
                 exofop_dir = obj_folder / "exofop" / obs_date

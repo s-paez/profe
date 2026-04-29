@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 import pandas as pd
+from astropy.time import Time
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,30 @@ _TIC_CACHE: dict[str, str] = {}
 def normalize_band(band: str) -> str:
     """Normalize band names to gp/rp/ip."""
     return {"g": "gp", "r": "rp", "i": "ip"}.get(band, band)
+
+
+def get_utc_date_from_bjd(measurement_folder: Path) -> str:
+    """
+    Derive the UTC date (YYYY-MM-DD) from the first BJD_TDB value 
+    in a measurement file within the provided folder.
+    Falls back to the folder name if it fails.
+    """
+    folder_name = measurement_folder.name
+    try:
+        # Find first measurement file
+        for file_path in measurement_folder.iterdir():
+            if file_path.suffix in (".tbl", ".csv") and file_path.is_file():
+                sep = r"\s+" if file_path.suffix == ".tbl" else ","
+                # Read just the first few rows to save time
+                df = pd.read_csv(file_path, sep=sep, engine="python", nrows=5)
+                if "BJD_TDB" in df.columns and not df.empty:
+                    bjd = df["BJD_TDB"].iloc[0]
+                    # Convert to UTC string (e.g., '2025-02-23')
+                    return Time(bjd, format='jd', scale='tdb').utc.iso[:10]
+    except Exception as e:
+        logger.warning(f"Could not derive UTC date from {measurement_folder}: {e}. Falling back to folder name.")
+        
+    return folder_name
 
 
 def get_tic_from_toi(toi_name: str) -> str:
@@ -90,7 +115,8 @@ def exofop_title(target: str, date: str, band: str) -> str:
 
 def exofop_path(
     obj_folder: Path,
-    date: str,
+    local_date: str,
+    utc_date: str,
     target: str,
     band: str,
     filetype: str,
@@ -104,7 +130,8 @@ def exofop_path(
 
     Args:
         obj_folder: Base object folder path.
-        date: Date string in "YYYY-MM-DD" format.
+        local_date: Local date string in "YYYY-MM-DD" format for folder path.
+        utc_date: UTC date string in "YYYY-MM-DD" format for filename.
         target: Target name (e.g., "TOI-1234").
         band: Filter band (e.g., "g", "gp", "rp").
         filetype: Type of file (e.g., "_lightcurve", "_field").
@@ -114,6 +141,7 @@ def exofop_path(
         Path: Standardized path.
     """
     band_norm = normalize_band(band)
-    date_compact = date.replace("-", "")
+    date_compact = utc_date.replace("-", "")
     name = f"{target}-01_{date_compact}_OAN-SPM-2m1-OPTICAM_{band_norm}{filetype}{ext}"
-    return obj_folder / "exofop" / date / band_norm / name
+    
+    return obj_folder / "exofop" / local_date / band_norm / name

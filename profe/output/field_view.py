@@ -17,7 +17,7 @@ from astropy.visualization import ZScaleInterval
 from matplotlib.patches import Circle, Wedge
 from pandas import DataFrame
 
-from .naming import exofop_path, exofop_title, get_exofop_id
+from .naming import exofop_path, exofop_title, get_exofop_id, get_utc_date_from_bjd
 
 
 class FieldViewPlotter:
@@ -32,17 +32,18 @@ class FieldViewPlotter:
         self.logger = logging.getLogger(__name__)
 
     def _is_processed(
-        self, obj_dir: Path, date_name: str, target_name: str, band: str
+        self, obj_dir: Path, date_name: str, utc_date: str, target_name: str, band: str
     ) -> bool:
         """Check if _field.png already exists."""
         exofop_obj = get_exofop_id(target_name)
-        expected = exofop_path(obj_dir, date_name, exofop_obj, band, "_field", ".png")
+        expected = exofop_path(obj_dir, date_name, utc_date, exofop_obj, band, "_field", ".png")
         return expected.exists()
 
     def _generate_plot(
         self,
         obj_dir: Path,
         date_folder: Path,
+        utc_date: str,
         target_name: str,
         file_to_read: Path,
         band: str,
@@ -99,7 +100,7 @@ class FieldViewPlotter:
 
         # Photometry parameters
         exofop_obj = get_exofop_id(target_name)
-        title_str = exofop_title(exofop_obj, date_folder.name, band)
+        title_str = exofop_title(exofop_obj, utc_date, band)
         source: int = int(target_row["Source_Radius"])
         sky_min: float = float(target_row["Sky_Rad(min)"])
         sky_max: float = float(target_row["Sky_Rad(max)"])
@@ -143,7 +144,7 @@ class FieldViewPlotter:
             )
         ax.set_title(title_str, fontsize=9)
         ap_path: Path = exofop_path(
-            obj_dir, date_folder.name, exofop_obj, band, "_field", ".png"
+            obj_dir, date_folder.name, utc_date, exofop_obj, band, "_field", ".png"
         )
         ap_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(ap_path, dpi=300)
@@ -168,6 +169,7 @@ class FieldViewPlotter:
         for date_folder in sorted(measurements_root.iterdir()):
             if not date_folder.is_dir():
                 continue
+            utc_date = get_utc_date_from_bjd(date_folder)
 
             meas_files: list[Path] = [
                 f
@@ -178,9 +180,9 @@ class FieldViewPlotter:
             ]
             for file_to_read in meas_files:
                 band: str = file_to_read.stem.split("_")[-1]
-                if self._is_processed(obj_dir, date_folder.name, target, band):
+                if self._is_processed(obj_dir, date_folder.name, utc_date, target, band):
                     continue
-                self._generate_plot(obj_dir, date_folder, target, file_to_read, band)
+                self._generate_plot(obj_dir, date_folder, utc_date, target, file_to_read, band)
 
     def run(self, target: str | None = None) -> None:
         """Process all objects in organized_data.

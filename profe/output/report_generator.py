@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from .naming import get_exofop_id, normalize_band
+from .naming import get_exofop_id, normalize_band, get_utc_date_from_bjd
 
 logger = logging.getLogger(__name__)
 
@@ -113,14 +113,14 @@ class ReportGenerator:
         return metrics
 
     def _get_predicted_metrics(
-        self, obj_folder: Path, date: str, exofop_id: str
+        self, obj_folder: Path, local_date: str, utc_date: str, exofop_id: str
     ) -> dict[str, str]:
         """Read predicted transit metrics from the .dat file created by transit_info.py."""
-        date_compact = date.replace("-", "")
+        date_compact = utc_date.replace("-", "")
         dat_file = (
             obj_folder
             / "exofop"
-            / date
+            / local_date
             / f"{exofop_id}-01_{date_compact}_OAN-SPM-2m1-OPTICAM_transit_times.dat"
         )
 
@@ -150,12 +150,12 @@ class ReportGenerator:
         self,
         target_name: str,
         exofop_id: str,
-        date: str,
+        utc_date: str,
         bands_data: dict[str, dict[str, Any]],
         predicted: dict[str, str],
     ) -> str:
         """Generate the consolidated report text."""
-        date_dots = date.replace("-", ".")
+        date_dots = utc_date.replace("-", ".")
         bands_present = sorted(bands_data.keys())
         band_str = ", ".join(bands_present)
 
@@ -255,7 +255,7 @@ class ReportGenerator:
 
         template = f"""{exofop_id} (TOI {target_name}) on UT{date_dots} from {EXPECTED_OBS} in {band_str}
 
-{OBSERVERS}/{EXPECTED_OBS} observed a full transit on {date} in {band_str} and detected a transit event with depth of {depth_summary} using uncontaminated {ap_line} target apertures. [(Rp/R*)^2 (from AIJ analysis): {rprs2_summary}]
+{OBSERVERS}/{EXPECTED_OBS} observed a full transit on {utc_date} in {band_str} and detected a transit event with depth of {depth_summary} using uncontaminated {ap_line} target apertures. [(Rp/R*)^2 (from AIJ analysis): {rprs2_summary}]
 
 1.  GOAL(S):
     [] Analyze if the transit is on the target star
@@ -323,8 +323,9 @@ class ReportGenerator:
                     continue
 
                 date = date_folder.name
+                utc_date = get_utc_date_from_bjd(date_folder)
                 exofop_id = get_exofop_id(target_name)
-                date_compact = date.replace("-", "")
+                date_compact = utc_date.replace("-", "")
 
                 # Collect data for all bands
                 meas_files = [
@@ -354,7 +355,7 @@ class ReportGenerator:
                     continue
 
                 # Predicted metrics from transit_info.py
-                predicted = self._get_predicted_metrics(obj_folder, date, exofop_id)
+                predicted = self._get_predicted_metrics(obj_folder, date, utc_date, exofop_id)
 
                 # Naming follows TICID-01_<date>_OAN-SPM-2m1-OPTICAM_<gp-rp-ip>_notes.txt
                 bands_suffix = "-".join(sorted(bands_data.keys()))
@@ -371,7 +372,7 @@ class ReportGenerator:
                 )
 
                 report_content = self._generate_report(
-                    target_name, exofop_id, date, bands_data, predicted
+                    target_name, exofop_id, utc_date, bands_data, predicted
                 )
 
                 out_dir.mkdir(parents=True, exist_ok=True)

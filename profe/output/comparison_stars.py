@@ -33,7 +33,7 @@ import pandas as pd
 from numpy.typing import NDArray
 from pandas import DataFrame, Series
 
-from .naming import exofop_path, exofop_title, get_exofop_id, normalize_band
+from .naming import exofop_path, exofop_title, get_exofop_id, normalize_band, get_utc_date_from_bjd
 
 
 class ComparisonStarsPlotter:
@@ -64,14 +64,15 @@ class ComparisonStarsPlotter:
         self.logger = logging.getLogger(__name__)
         self.bin_minutes = bin_minutes
 
-    def _is_processed(self, obj_folder: Path, obj: str, date: str, band: str) -> bool:
+    def _is_processed(self, obj_folder: Path, obj: str, date: str, utc_date: str, band: str) -> bool:
         """
         Check whether the comparison stars plot already exists.
 
         Args:
             obj_folder (Path): Path to the object directory.
             obj (str): Target object name.
-            date (str): Observation date.
+            date (str): Local observation date.
+            utc_date (str): UTC observation date.
             band (str): Photometric band.
 
         Returns:
@@ -79,7 +80,7 @@ class ComparisonStarsPlotter:
         """
         exofop_obj = get_exofop_id(obj)
         expected = exofop_path(
-            obj_folder, date, exofop_obj, band, "_compstar-lightcurves", ".png"
+            obj_folder, date, utc_date, exofop_obj, band, "_compstar-lightcurves", ".png"
         )
         return expected.exists()
 
@@ -210,6 +211,7 @@ class ComparisonStarsPlotter:
         self,
         obj: str,
         date: str,
+        utc_date: str,
         band: str,
         df: DataFrame,
         times_df: Optional[DataFrame],
@@ -226,11 +228,12 @@ class ComparisonStarsPlotter:
 
         Args:
             obj (str): Target object name.
-            date (str): Observation date.
+            date (str): Local observation date.
+            utc_date (str): UTC observation date.
             band (str): Photometric band identifier.
             df (DataFrame): Measurement table for this band.
             times_df (Optional[DataFrame]): Time intervals for RMS calculation.
-            exofop_dir (Path): Output directory for the PNG.
+            obj_folder (Path): Output directory for the PNG.
         """
         mpl.rcParams.update({"font.family": "serif", "font.size": 14})
 
@@ -333,7 +336,7 @@ class ComparisonStarsPlotter:
         axs[0].grid(ls=":", zorder=0, alpha=0.5)
         axs[0].legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=8)
         exofop_obj = get_exofop_id(obj)
-        title_str = exofop_title(exofop_obj, date, band)
+        title_str = exofop_title(exofop_obj, utc_date, band)
         axs[0].set_title(title_str)
 
         # ── Panels 1–4: Diagnostic variables ─────────────────────────────
@@ -392,7 +395,7 @@ class ComparisonStarsPlotter:
         # ── Save ─────────────────────────────────────────────────────────
         exofop_obj = get_exofop_id(obj)
         out_file: Path = exofop_path(
-            obj_folder, date, exofop_obj, band, "_compstar-lightcurves", ".png"
+            obj_folder, date, utc_date, exofop_obj, band, "_compstar-lightcurves", ".png"
         )
         out_file.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(out_file, format="png", dpi=300, bbox_inches="tight")
@@ -428,6 +431,7 @@ class ComparisonStarsPlotter:
                 if not date_folder.is_dir():
                     continue
                 date: str = date_folder.name
+                utc_date: str = get_utc_date_from_bjd(date_folder)
 
                 meas_files: list[Path] = self._obtain_measurements(date_folder)
                 if not meas_files:
@@ -453,7 +457,7 @@ class ComparisonStarsPlotter:
                     stem = f.stem
                     band = normalize_band(stem.split("_")[-1])
 
-                    if self._is_processed(obj_folder, obj, date, band):
+                    if self._is_processed(obj_folder, obj, date, utc_date, band):
                         self.logger.info(
                             f"Skipping comp stars {obj},{date},{band}."
                             " Already processed"
@@ -461,5 +465,5 @@ class ComparisonStarsPlotter:
                         continue
 
                     self._create_comparison_plot(
-                        obj, date, band, df, times_df, obj_folder
+                        obj, date, utc_date, band, df, times_df, obj_folder
                     )

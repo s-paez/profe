@@ -23,7 +23,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, Optional
 
-from .naming import exofop_path, exofop_title, get_exofop_id, normalize_band
+from .naming import exofop_path, exofop_title, get_exofop_id, normalize_band, get_utc_date_from_bjd
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -83,7 +83,7 @@ class LightCurvePlotter:
         return expected.exists()
 
     def _missing_exofop_bands(
-        self, obj_folder: Path, obj: str, date: str, bands: list[str]
+        self, obj_folder: Path, obj: str, date: str, utc_date: str, bands: list[str]
     ) -> list[str]:
         """
         Return band names whose per-band exofop PNGs do not yet exist.
@@ -91,7 +91,8 @@ class LightCurvePlotter:
         Args:
             obj_folder (Path): Path to the object directory.
             obj (str): Target object name.
-            date (str): Observation date in YYYY-MM-DD format.
+            date (str): Local observation date in YYYY-MM-DD format.
+            utc_date (str): UTC observation date in YYYY-MM-DD format.
             bands (list[str]): Available photometric band names.
 
         Returns:
@@ -100,7 +101,7 @@ class LightCurvePlotter:
         return [
             b
             for b in bands
-            if not exofop_path(obj_folder, date, obj, b, "_lightcurve", ".png").exists()
+            if not exofop_path(obj_folder, date, utc_date, obj, b, "_lightcurve", ".png").exists()
         ]
 
     def _load_times(self, folder: Path) -> DataFrame | None:
@@ -250,6 +251,7 @@ class LightCurvePlotter:
         self,
         obj: str,
         date: str,
+        utc_date: str,
         data: Dict,
         times_df: Optional[DataFrame],
         out_folder: Path,
@@ -427,13 +429,14 @@ class LightCurvePlotter:
         # Save individual per-band PNGs in exofop
         for band, df_band in data.items():
             self._save_single_band_multipanel(
-                obj, date, band, df_band, times_df, t0, obj_folder
+                obj, date, utc_date, band, df_band, times_df, t0, obj_folder
             )
 
     def _save_single_band_multipanel(
         self,
         obj: str,
         date: str,
+        utc_date: str,
         band: str,
         df: DataFrame,
         times_df: Optional[DataFrame],
@@ -513,7 +516,7 @@ class LightCurvePlotter:
         axs[0].set_ylabel("Relative Flux")
         axs[0].grid(ls=":", zorder=0, alpha=0.5)
         axs[0].legend(loc="lower left", fontsize=9)
-        title_str = exofop_title(exofop_obj, date, band)
+        title_str = exofop_title(exofop_obj, utc_date, band)
         axs[0].set_title(title_str)
 
         # Panels 1-4: auxiliary variables
@@ -565,7 +568,7 @@ class LightCurvePlotter:
         axs[5].grid(ls=":", alpha=0.5)
 
         png_file: Path = exofop_path(
-            obj_folder, date, exofop_obj, band, "_lightcurve", ".png"
+            obj_folder, date, utc_date, exofop_obj, band, "_lightcurve", ".png"
         )
         png_file.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(png_file, format="png", dpi=300, bbox_inches="tight")
@@ -686,6 +689,7 @@ class LightCurvePlotter:
                 if not date_folder.is_dir():
                     continue
                 date: str = date_folder.name
+                utc_date: str = get_utc_date_from_bjd(date_folder)
 
                 plots_done = self._plots_exist(obj_folder, obj, date)
 
@@ -716,7 +720,7 @@ class LightCurvePlotter:
                     data[filtr] = df
 
                 missing_bands = self._missing_exofop_bands(
-                    obj_folder, obj, date, list(data.keys())
+                    obj_folder, obj, date, utc_date, list(data.keys())
                 )
 
                 if plots_done and not missing_bands:
@@ -730,7 +734,7 @@ class LightCurvePlotter:
                 # Generate plots (PDF) if not already present
                 if not plots_done:
                     self._create_multipanel_plot(
-                        obj, date, data, times, out_base, obj_folder
+                        obj, date, utc_date, data, times, out_base, obj_folder
                     )
                     self._create_lightcurves_plot(obj, date, data, times, out_base)
                     # CSV saving
@@ -746,6 +750,7 @@ class LightCurvePlotter:
                             self._save_single_band_multipanel(
                                 obj,
                                 date,
+                                utc_date,
                                 band,
                                 data[band],
                                 times,
@@ -759,6 +764,7 @@ class LightCurvePlotter:
                     dest = exofop_path(
                         obj_folder,
                         date,
+                        utc_date,
                         exofop_obj,
                         filtr,
                         "_measurements",

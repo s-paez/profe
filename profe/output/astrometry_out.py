@@ -18,7 +18,7 @@ import logging
 import warnings
 from pathlib import Path
 
-from .naming import exofop_path, get_exofop_id
+from .naming import exofop_path, get_exofop_id, get_utc_date_from_bjd
 
 import numpy as np
 from astropy.convolution import convolve
@@ -84,10 +84,10 @@ class AstrometrySolver:
         return ast
 
     def _is_processed(
-        self, obj_dir: Path, date_name: str, target_name: str, band: str
+        self, obj_dir: Path, date_name: str, utc_date: str, target_name: str, band: str
     ) -> bool:
         exofop_obj = get_exofop_id(target_name)
-        expected = exofop_path(obj_dir, date_name, exofop_obj, band, "_WCS", ".fits")
+        expected = exofop_path(obj_dir, date_name, utc_date, exofop_obj, band, "_WCS", ".fits")
         return expected.exists()
 
     def _detect_sources(self, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -265,13 +265,15 @@ class AstrometrySolver:
                 and not f.name.startswith(".")
                 and f.suffix in (".tbl", ".csv")
             ]
+            
+            utc_date = get_utc_date_from_bjd(date_folder)
 
             pass  # We use exofop_path instead
 
             for file_to_read in meas_files:
                 band: str = file_to_read.stem.split("_")[-1]
 
-                if self._is_processed(obj_dir, date_folder.name, target, band):
+                if self._is_processed(obj_dir, date_folder.name, utc_date, target, band):
                     self.logger.info(
                         "Astrometry already solved for "
                         f"({target}, {date_folder.name}, {band})"
@@ -291,7 +293,7 @@ class AstrometrySolver:
                 fits_to_solve = fits_cands[0]
                 exofop_obj = get_exofop_id(target)
                 save_path = exofop_path(
-                    obj_dir, date_folder.name, exofop_obj, band, "_WCS", ".fits"
+                    obj_dir, date_folder.name, utc_date, exofop_obj, band, "_WCS", ".fits"
                 )
                 save_path.parent.mkdir(parents=True, exist_ok=True)
 
