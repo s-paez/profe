@@ -209,7 +209,7 @@ class AltAzGuidingPlotter:
 
             self._generate_plots(obj_dir, date_folder, RA, DEC, target)
 
-    def run(self) -> None:
+    def run(self, target: str | None = None) -> None:
         """
         Process all objects in the organized data directory.
 
@@ -217,11 +217,16 @@ class AltAzGuidingPlotter:
         `measurements/` subfolder and its output does not yet exist, calls
         `process_object()` to generate plots.
 
+        Args:
+            target (str | None): If specified, only process this target.
+
         Returns:
             None
         """
         for obj_dir in self.data_dir.iterdir():
             if not obj_dir.is_dir():
+                continue
+            if target and obj_dir.name.lower() != target.lower():
                 continue
             if not (obj_dir / "measurements").exists():
                 continue

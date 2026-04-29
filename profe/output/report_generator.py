@@ -297,14 +297,20 @@ class ReportGenerator:
 """
         return template
 
-    def run(self) -> None:
-        """Process all objects and dates to generate consolidated notes files."""
+    def run(self, target: str | None = None) -> None:
+        """Process all objects and dates to generate consolidated notes files.
+
+        Args:
+            target (str | None): If specified, only process this target.
+        """
         if not self.data_dir.exists():
             logger.error(f"Data directory {self.data_dir} does not exist.")
             return
 
         for obj_folder in sorted(self.data_dir.iterdir()):
             if not obj_folder.is_dir():
+                continue
+            if target and obj_folder.name.lower() != target.lower():
                 continue
 
             target_name = obj_folder.name

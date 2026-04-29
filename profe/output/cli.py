@@ -36,12 +36,17 @@ logger = logging.getLogger(__name__)
 logger.info("Running PROFE-outputs")
 
 
-def run_output() -> None:
+def run_output(target: str | None = None) -> None:
     """
     Run all PROFE output modules sequentially.
 
     Executes each output-generating class in order to produce all standard
     plots and data products for the PROFE pipeline.
+
+    Args:
+        target (str | None): If specified, only process outputs for this
+            target name (e.g. ``"TOI-1234"``). When ``None``, all targets
+            in ``organized_data/`` are processed.
 
     Steps:
         1. Run AltAzGuidingPlotter to produce alt-azimuth and centroid plots.
@@ -52,32 +57,35 @@ def run_output() -> None:
     Returns:
         None
     """
+    if target:
+        logger.info(f"Target filter active: processing only '{target}'")
+
     ag_plotter: AltAzGuidingPlotter = AltAzGuidingPlotter()
-    ag_plotter.run()
+    ag_plotter.run(target=target)
 
     lc_plotter: LightCurvePlotter = LightCurvePlotter()
-    lc_plotter.run()
+    lc_plotter.run(target=target)
 
     avg_plotter: TimeAveragingPlotter = TimeAveragingPlotter()
-    avg_plotter.run()
+    avg_plotter.run(target=target)
 
     ex_plotter: FieldViewPlotter = FieldViewPlotter()
-    ex_plotter.run()
+    ex_plotter.run(target=target)
 
     sp_plotter: SeeingProfilePlotter = SeeingProfilePlotter()
-    sp_plotter.run()
+    sp_plotter.run(target=target)
 
     comp_plotter: ComparisonStarsPlotter = ComparisonStarsPlotter()
-    comp_plotter.run()
+    comp_plotter.run(target=target)
 
     astrometry_solver: AstrometrySolver = AstrometrySolver()
-    astrometry_solver.run()
+    astrometry_solver.run(target=target)
 
     transit_manager: TransitDataManager = TransitDataManager()
-    transit_manager.run()
+    transit_manager.run(target=target)
 
     report_generator: ReportGenerator = ReportGenerator()
-    report_generator.run()
+    report_generator.run(target=target)
 
 
 if __name__ == "__main__":

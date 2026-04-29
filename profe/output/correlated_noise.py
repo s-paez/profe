@@ -205,7 +205,7 @@ class TimeAveragingPlotter:
         self.logger.info(msg)
         return fil, df_out
 
-    def run(self) -> None:
+    def run(self, target: str | None = None) -> None:
         """
         Run the time-averaging analysis for all objects and dates.
 
@@ -214,6 +214,9 @@ class TimeAveragingPlotter:
             2. Identify all TBL files and parse their filter names.
             3. Process each filter in parallel.
             4. Generate a combined multi-band red-noise plot.
+
+        Args:
+            target (str | None): If specified, only process this target.
 
         Returns:
             None
@@ -229,6 +232,8 @@ class TimeAveragingPlotter:
 
         for obj_dir in sorted(self.data_dir.iterdir()):
             if not obj_dir.is_dir():
+                continue
+            if target and obj_dir.name.lower() != target.lower():
                 continue
             meas_root: Path = obj_dir / "measurements"
             if not meas_root.exists() or not meas_root.is_dir():

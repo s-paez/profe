@@ -182,10 +182,16 @@ class FieldViewPlotter:
                     continue
                 self._generate_plot(obj_dir, date_folder, target, file_to_read, band)
 
-    def run(self) -> None:
-        """Process all objects in organized_data."""
+    def run(self, target: str | None = None) -> None:
+        """Process all objects in organized_data.
+
+        Args:
+            target (str | None): If specified, only process this target.
+        """
         self.logger.info("Running Field View Plotter")
         for obj_dir in self.data_dir.iterdir():
             if not obj_dir.is_dir() or not (obj_dir / "measurements").exists():
+                continue
+            if target and obj_dir.name.lower() != target.lower():
                 continue
             self.process_object(self.corrected / obj_dir)

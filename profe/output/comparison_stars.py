@@ -399,7 +399,7 @@ class ComparisonStarsPlotter:
         plt.close(fig)
         self.logger.info(f"Plot: {out_file}, saved")
 
-    def run(self) -> None:
+    def run(self, target: str | None = None) -> None:
         """
         Process all objects and dates to generate comparison star plots.
 
@@ -408,9 +408,14 @@ class ComparisonStarsPlotter:
             - Identify comparison star columns.
             - Generate the 6-panel comparison star plot.
             - Save as PNG to ``exofop/<date>/``.
+
+        Args:
+            target (str | None): If specified, only process this target.
         """
         for obj_folder in sorted(self.data_dir.iterdir()):
             if not obj_folder.is_dir():
+                continue
+            if target and obj_folder.name.lower() != target.lower():
                 continue
 
             obj: str = obj_folder.name

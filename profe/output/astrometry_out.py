@@ -315,11 +315,17 @@ class AstrometrySolver:
                 except Exception as exc:
                     self.logger.error(f"Error communicating with Astrometry.net: {exc}")
 
-    def run(self) -> None:
-        """Process all objects found in ``organized_data``."""
+    def run(self, target: str | None = None) -> None:
+        """Process all objects found in ``organized_data``.
+
+        Args:
+            target (str | None): If specified, only process this target.
+        """
         self.logger.info("Running Astrometry WCS Solver (astroquery)")
         for obj_dir in self.data_dir.iterdir():
             if not obj_dir.is_dir():
+                continue
+            if target and obj_dir.name.lower() != target.lower():
                 continue
             if not (obj_dir / "measurements").exists():
                 continue

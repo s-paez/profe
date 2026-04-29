@@ -652,7 +652,7 @@ class LightCurvePlotter:
         plt.close(fig_lc)
         self.logger.info(f"Plot: {out_file}, saved")
 
-    def run(self) -> None:
+    def run(self, target: str | None = None) -> None:
         """
         Process all objects and dates to generate light curve outputs.
 
@@ -663,11 +663,16 @@ class LightCurvePlotter:
             - Generate per-method and per-filter plots.
             - Save normalized multiband CSV files.
 
+        Args:
+            target (str | None): If specified, only process this target.
+
         Returns:
             None
         """
         for obj_folder in sorted(self.data_dir.iterdir()):
             if not obj_folder.is_dir():
+                continue
+            if target and obj_folder.name.lower() != target.lower():
                 continue
 
             obj: str = obj_folder.name
