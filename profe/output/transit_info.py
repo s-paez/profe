@@ -51,40 +51,22 @@ class TransitDataManager:
             logger.error(f"Error reading credentials file: {e}")
             return None
 
-    def _get_ttf_data(self, tic_id: str, target_date: str) -> list[dict]:
-        """
-        Scrapes TTF for transits of a specific TIC ID near the target date.
-
-        Args:
-            tic_id (str): The TIC ID (numeric string).
-            target_date (str): Observation date in YYYY-MM-DD format.
-
-        Returns:
-            list[dict]: List of transit events found.
-        """
-        creds = self._load_credentials()
-        if not creds:
-            return []
-
-        user, password = creds
+    def _query_ttf_single(
+        self,
+        tic_id: str,
+        start_date_str: str,
+        days_to_print: int,
+        user: str,
+        password: str,
+    ) -> requests.Response | None:
+        """Send a single TTF query and return the response, or None on failure."""
         url = "https://astro.swarthmore.edu/telescope/tess-secure/print_eclipses.cgi"
-
-        # Calculate search date: target_date - 1 day
-        try:
-            obs_dt = datetime.strptime(target_date, "%Y-%m-%d")
-            search_dt = obs_dt - timedelta(days=1)
-            start_date_str = search_dt.strftime("%m-%d-%Y")
-        except Exception as e:
-            logger.error(f"Error calculating search date for {target_date}: {e}")
-            return []
-
-        # We query specifically for the night starting one day before the observation date
         params = {
             "target_string": f"TIC {tic_id}",
             "observatory_string": "31.029167;-115.486944;America/Tijuana;OAN-SPM 2.1m",
-            "use_utc": "0",  # Use Local Time (Evening Date)
+            "use_utc": "0",  # Local Time (Evening Date)
             "start_date": start_date_str,
-            "days_to_print": "1",
+            "days_to_print": str(days_to_print),
             "days_in_past": "0",
             "print_html": "1",
             "maximum_priority": "5",
@@ -92,15 +74,64 @@ class TransitDataManager:
         }
 
         try:
-            # We override the start date if possible, but TTF usually centers on 'today'.
-            # To get a specific date in the past/future, we might need to adjust 'days_in_past'.
-            # Monitoring logs might reveal if we need a better date handling logic.
             response = requests.get(
                 url, params=params, auth=(user, password), timeout=15
             )
             response.raise_for_status()
+            return response
         except Exception as e:
             logger.error(f"Failed to connect to TTF for TIC {tic_id}: {e}")
+            return None
+
+    def _get_ttf_data(self, tic_id: str, target_date: str) -> list[dict]:
+        """
+        Scrapes TTF for transits of a specific TIC ID near the target date.
+
+        Because the observation date in the pipeline is stored as a UTC calendar
+        date but TTF uses the local "Evening Date" at the observatory
+        (America/Tijuana, UTC-7/UTC-8), a single-night query can miss transits
+        that fall on the boundary between local and UTC dates.
+
+        To handle this robustly the method searches a **3-day local-time
+        window** centred on the observation date (obs_date − 1 → obs_date + 1).
+        Duplicate transit events are filtered out by their mid-transit BJD.
+
+        Args:
+            tic_id (str): The TIC ID (numeric string).
+            target_date (str): Observation date in YYYY-MM-DD format.
+
+        Returns:
+            list[dict]: List of unique transit events found.
+        """
+        creds = self._load_credentials()
+        if not creds:
+            return []
+
+        user, password = creds
+
+        # Search a 3-day window (obs_date - 1 through obs_date + 1) in local
+        # time to guarantee we cover any UTC ↔ local-time offset.
+        try:
+            obs_dt = datetime.strptime(target_date, "%Y-%m-%d")
+            search_start = obs_dt - timedelta(days=1)
+            start_date_str = search_start.strftime("%m-%d-%Y")
+        except Exception as e:
+            logger.error(f"Error calculating search date for {target_date}: {e}")
+            return []
+
+        days_to_print = 3  # covers obs_date-1, obs_date, obs_date+1
+
+        logger.info(
+            f"TTF query for TIC {tic_id}: local-time window "
+            f"{search_start.strftime('%Y-%m-%d')} → "
+            f"{(search_start + timedelta(days=days_to_print - 1)).strftime('%Y-%m-%d')} "
+            f"({days_to_print} days)"
+        )
+
+        response = self._query_ttf_single(
+            tic_id, start_date_str, days_to_print, user, password
+        )
+        if response is None:
             return []
 
         soup = BeautifulSoup(response.text, "html.parser")
@@ -136,6 +167,7 @@ class TransitDataManager:
             return []
 
         results = []
+        seen_mids: set[str] = set()  # deduplicate by mid-transit BJD
 
         for row in rows[1:]:
             if not isinstance(row, Tag):
@@ -148,9 +180,6 @@ class TransitDataManager:
                 idx_dur if idx_dur is not None else 0,
             ):
                 continue
-
-            # Since we specifically queried the target date, we take all transits
-            # returned for that TIC ID in this single-day window.
 
             comment = cols[idx_comment].get_text(strip=True)
             times_raw = cols[idx_times].get_text()
@@ -188,11 +217,16 @@ class TransitDataManager:
                     t2 = parse_part(t2_str, t1)
                     t3 = parse_part(t3_str, t2)
 
+                    mid_key = f"{t2:.4f}"
+                    if mid_key in seen_mids:
+                        continue  # skip duplicate transit from overlapping window
+                    seen_mids.add(mid_key)
+
                     results.append(
                         {
                             "comment": comment,
                             "ingress": f"{t1:.4f}",
-                            "mid": f"{t2:.4f}",
+                            "mid": mid_key,
                             "egress": f"{t3:.4f}",
                             "depth": depth,
                             "duration": duration,
@@ -201,16 +235,26 @@ class TransitDataManager:
                 except Exception as e:
                     logger.warning(f"Error parsing transit times for TIC {tic_id}: {e}")
 
+        logger.info(
+            f"TTF returned {len(results)} unique transit(s) for TIC {tic_id} "
+            f"in 3-day window around {target_date}"
+        )
         return results
 
-    def run(self) -> None:
-        """Processes all objects and dates to generate transit data .dat files."""
+    def run(self, target: str | None = None) -> None:
+        """Processes all objects and dates to generate transit data .dat files.
+
+        Args:
+            target (str | None): If specified, only process this target.
+        """
         if not self.data_dir.exists():
             logger.error(f"Data directory {self.data_dir} does not exist.")
             return
 
         for obj_folder in sorted(self.data_dir.iterdir()):
             if not obj_folder.is_dir():
+                continue
+            if target and obj_folder.name.lower() != target.lower():
                 continue
 
             target_name = obj_folder.name  # e.g. TOI-3884.01
