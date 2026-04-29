@@ -38,11 +38,13 @@ def print_manual() -> None:
             Specifies the number of CPU cores to use during preprocessing.
             (e.g., profe -p -c 4). Defaults to all available cores.
 
-        \033[1m-o, --output\033[0m
+        \033[1m-o [TARGET], --output [TARGET]\033[0m
             Runs the post-processing and output generation stage.
             This utilizes AstroImageJ photometry tables (.tbl) to generate
             Altitude-Azimuth tracks, Binned Light Curves with RMS error,
             Time-averaging Correlated Noise plots, and ExoFOP files.
+            Optionally specify a TARGET name (e.g., TOI-1234) to generate
+            outputs only for that target.
 
         \033[1m-h, --help\033[0m
             Shows the quick-reference help message and exits.
@@ -65,6 +67,9 @@ def print_manual() -> None:
 
         5. Generate scientific outputs and plots from photometric tables:
            $ profe -o
+
+        6. Generate outputs only for a specific target:
+           $ profe -o "TOI-1234"
     """
     print(man_text)
 
@@ -100,8 +105,11 @@ def main() -> None:
     group.add_argument(
         "-o",
         "--output",
-        action="store_true",
-        help="Run the output generation pipeline.",
+        nargs="?",
+        const=True,
+        default=False,
+        metavar="TARGET",
+        help="Run the output generation pipeline. Optionally specify a target name to process only that target.",
     )
 
     parser.add_argument(
@@ -159,7 +167,9 @@ def main() -> None:
         try:
             from profe.output.cli import run_output
 
-            run_output()
+            # args.output is True (bare -o) or a string (target name)
+            target = args.output if isinstance(args.output, str) else None
+            run_output(target=target)
         except ImportError as e:
             print(f"Error importing output module: {e}")
             sys.exit(1)
