@@ -120,9 +120,20 @@ class SeeingProfilePlotter:
         rad: Any = np.asanyarray(rp.data_radius)
         d_profile: Any = np.asanyarray(rp.data_profile)
         ax.scatter(rad, d_profile, s=1, alpha=0.5, rasterized=True)
+        scale = {"gp": 0.139, "rp": 0.140, "ip": 0.166}.get(band, 0.15)
+        trans = ax.get_xaxis_transform()
+
         ax.axvline(source, color="red", ls=":", label="Source Radius")
+        ax.text(source - 0.2, 0.95, f"{source} px ({source*scale:.1f}\")", color="red", 
+                rotation=90, va='top', ha='right', transform=trans, fontsize=9)
+
         ax.axvline(sky_min, color="red", linestyle="--", label="Sky Min")
+        ax.text(sky_min - 0.2, 0.95, f"{sky_min:g} px ({sky_min*scale:.1f}\")", color="red", 
+                rotation=90, va='top', ha='right', transform=trans, fontsize=9)
+
         ax.axvline(sky_max, color="red", label="Sky Max")
+        ax.text(sky_max + 0.2, 0.95, f"{sky_max:g} px ({sky_max*scale:.1f}\")", color="red", 
+                rotation=90, va='top', ha='left', transform=trans, fontsize=9)
         ax.set_xlabel("Radius [pixels]")
         ax.set_ylabel("Counts")
         ax.set_title(title_str, fontsize=9)
