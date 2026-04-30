@@ -255,7 +255,7 @@ class ReportGenerator:
         except (ValueError, TypeError):
             interpretation_text = "[Timing analysis pending]"
 
-        template = f"""{exofop_id} (TOI {target_name}) on UT{date_dots} from {EXPECTED_OBS} in {band_str}
+        template = f"""{exofop_id} ({target_name}) on UT{date_dots} from {EXPECTED_OBS} in {band_str}
 
 {OBSERVERS}/{EXPECTED_OBS} observed a full transit on {utc_date} in {band_str} and detected a transit event with depth of {depth_summary} using uncontaminated {ap_line} target apertures. [(Rp/R*)^2 (from AIJ analysis): {rprs2_summary}]
 
