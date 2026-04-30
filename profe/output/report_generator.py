@@ -156,7 +156,9 @@ class ReportGenerator:
     ) -> str:
         """Generate the consolidated report text."""
         date_dots = utc_date.replace("-", ".")
-        bands_present = sorted(bands_data.keys())
+        # Sort bands in order: gp, rp, ip
+        band_order = {"gp": 1, "rp": 2, "ip": 3}
+        bands_present = sorted(bands_data.keys(), key=lambda b: band_order.get(b, 99))
         band_str = ", ".join(bands_present)
 
         # Build multi-band metric strings
@@ -358,7 +360,8 @@ class ReportGenerator:
                 predicted = self._get_predicted_metrics(obj_folder, date, utc_date, exofop_id)
 
                 # Naming follows TICID-01_<date>_OAN-SPM-2m1-OPTICAM_<gp-rp-ip>_notes.txt
-                bands_suffix = "-".join(sorted(bands_data.keys()))
+                band_order = {"gp": 1, "rp": 2, "ip": 3}
+                bands_suffix = "-".join(sorted(bands_data.keys(), key=lambda b: band_order.get(b, 99)))
                 filename = f"{exofop_id}-01_{date_compact}_OAN-SPM-2m1-OPTICAM_{bands_suffix}_notes.txt"
                 out_dir = obj_folder / "exofop" / date
                 out_file = out_dir / filename
