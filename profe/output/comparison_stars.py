@@ -33,7 +33,13 @@ import pandas as pd
 from numpy.typing import NDArray
 from pandas import DataFrame, Series
 
-from .naming import exofop_path, exofop_title, get_exofop_id, normalize_band, get_utc_date_from_bjd
+from .naming import (
+    exofop_path,
+    exofop_title,
+    get_exofop_id,
+    normalize_band,
+    get_utc_date_from_bjd,
+)
 
 
 class ComparisonStarsPlotter:
@@ -64,7 +70,9 @@ class ComparisonStarsPlotter:
         self.logger = logging.getLogger(__name__)
         self.bin_minutes = bin_minutes
 
-    def _is_processed(self, obj_folder: Path, obj: str, date: str, utc_date: str, band: str) -> bool:
+    def _is_processed(
+        self, obj_folder: Path, obj: str, date: str, utc_date: str, band: str
+    ) -> bool:
         """
         Check whether the comparison stars plot already exists.
 
@@ -80,7 +88,13 @@ class ComparisonStarsPlotter:
         """
         exofop_obj = get_exofop_id(obj)
         expected = exofop_path(
-            obj_folder, date, utc_date, exofop_obj, band, "_compstar-lightcurves", ".png"
+            obj_folder,
+            date,
+            utc_date,
+            exofop_obj,
+            band,
+            "_compstar-lightcurves",
+            ".png",
         )
         return expected.exists()
 
@@ -395,7 +409,13 @@ class ComparisonStarsPlotter:
         # ── Save ─────────────────────────────────────────────────────────
         exofop_obj = get_exofop_id(obj)
         out_file: Path = exofop_path(
-            obj_folder, date, utc_date, exofop_obj, band, "_compstar-lightcurves", ".png"
+            obj_folder,
+            date,
+            utc_date,
+            exofop_obj,
+            band,
+            "_compstar-lightcurves",
+            ".png",
         )
         out_file.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(out_file, format="png", dpi=300, bbox_inches="tight")

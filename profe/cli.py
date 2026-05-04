@@ -129,7 +129,9 @@ def main() -> None:
 
     # -c is only used with preprocessing steps
     if args.output and args.cores is not None:
-        parser.error("-c/--cores can only be used with preprocessing (-p, --organice, --filter) steps.")
+        parser.error(
+            "-c/--cores can only be used with preprocessing (-p, --organice, --filter) steps."
+        )
 
     if args.preprocess or args.organice or args.filter:
         # Determine command name for logging
@@ -153,9 +155,7 @@ def main() -> None:
             do_filter = args.preprocess or args.filter
 
             run_preprocess(
-                cores=args.cores,
-                do_organize=do_organize,
-                do_filter=do_filter
+                cores=args.cores, do_organize=do_organize, do_filter=do_filter
             )
         except ImportError as e:
             print(f"Error importing preprocessing module: {e}")

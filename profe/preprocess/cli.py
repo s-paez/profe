@@ -42,7 +42,6 @@ def run_preprocess(
     os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
     os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-
     logger = logging.getLogger(__name__)
 
     logger.info(f"Running PROFE-prepocess with {cores if cores else 'all'} cores")

@@ -36,7 +36,9 @@ class FieldViewPlotter:
     ) -> bool:
         """Check if _field.png already exists."""
         exofop_obj = get_exofop_id(target_name)
-        expected = exofop_path(obj_dir, date_name, utc_date, exofop_obj, band, "_field", ".png")
+        expected = exofop_path(
+            obj_dir, date_name, utc_date, exofop_obj, band, "_field", ".png"
+        )
         return expected.exists()
 
     def _generate_plot(
@@ -180,9 +182,13 @@ class FieldViewPlotter:
             ]
             for file_to_read in meas_files:
                 band: str = file_to_read.stem.split("_")[-1]
-                if self._is_processed(obj_dir, date_folder.name, utc_date, target, band):
+                if self._is_processed(
+                    obj_dir, date_folder.name, utc_date, target, band
+                ):
                     continue
-                self._generate_plot(obj_dir, date_folder, utc_date, target, file_to_read, band)
+                self._generate_plot(
+                    obj_dir, date_folder, utc_date, target, file_to_read, band
+                )
 
     def run(self, target: str | None = None) -> None:
         """Process all objects in organized_data.

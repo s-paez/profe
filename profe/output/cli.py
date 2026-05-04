@@ -17,7 +17,6 @@ Logs are saved to `logs/profe_out.log`.
 """
 
 import logging
-import os
 
 # Import the processing classes
 from .alt_az_centroid import AltAzGuidingPlotter

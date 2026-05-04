@@ -19,7 +19,7 @@ def normalize_band(band: str) -> str:
 
 def get_utc_date_from_bjd(measurement_folder: Path) -> str:
     """
-    Derive the UTC date (YYYY-MM-DD) from the first BJD_TDB value 
+    Derive the UTC date (YYYY-MM-DD) from the first BJD_TDB value
     in a measurement file within the provided folder.
     Falls back to the folder name if it fails.
     """
@@ -34,10 +34,12 @@ def get_utc_date_from_bjd(measurement_folder: Path) -> str:
                 if "BJD_TDB" in df.columns and not df.empty:
                     bjd = df["BJD_TDB"].iloc[0]
                     # Convert to UTC string (e.g., '2025-02-23')
-                    return Time(bjd, format='jd', scale='tdb').utc.iso[:10]
+                    return Time(bjd, format="jd", scale="tdb").utc.iso[:10]
     except Exception as e:
-        logger.warning(f"Could not derive UTC date from {measurement_folder}: {e}. Falling back to folder name.")
-        
+        logger.warning(
+            f"Could not derive UTC date from {measurement_folder}: {e}. Falling back to folder name."
+        )
+
     return folder_name
 
 
@@ -143,5 +145,5 @@ def exofop_path(
     band_norm = normalize_band(band)
     date_compact = utc_date.replace("-", "")
     name = f"{target}-01_{date_compact}_OAN-SPM-2m1-OPTICAM_{band_norm}{filetype}{ext}"
-    
+
     return obj_folder / "exofop" / local_date / band_norm / name

@@ -19,11 +19,16 @@ expected output PDF exists on disk, so no external state file is needed.
 
 import logging
 import os
-import shutil
 from pathlib import Path
 from typing import Dict, Optional
 
-from .naming import exofop_path, exofop_title, get_exofop_id, normalize_band, get_utc_date_from_bjd
+from .naming import (
+    exofop_path,
+    exofop_title,
+    get_exofop_id,
+    normalize_band,
+    get_utc_date_from_bjd,
+)
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -101,7 +106,9 @@ class LightCurvePlotter:
         return [
             b
             for b in bands
-            if not exofop_path(obj_folder, date, utc_date, obj, b, "_lightcurve", ".png").exists()
+            if not exofop_path(
+                obj_folder, date, utc_date, obj, b, "_lightcurve", ".png"
+            ).exists()
         ]
 
     def _load_times(self, folder: Path) -> DataFrame | None:
@@ -185,7 +192,11 @@ class LightCurvePlotter:
 
         # Ensure we have a valid range
         if t_min == t_max:
-            return np.array([t_min]), np.array([np.mean(col)]), np.array([np.mean(err_col)])
+            return (
+                np.array([t_min]),
+                np.array([np.mean(col)]),
+                np.array([np.mean(err_col)]),
+            )
 
         bins = np.arange(t_min, t_max + bin_width_days, bin_width_days)
         bin_centers = 0.5 * (bins[1:] + bins[:-1])

@@ -231,8 +231,16 @@ class ReportGenerator:
             rprs2_items.append(f"{r_val} in {b}")
 
         if len(depth_items) > 1:
-            depth_summary = ", ".join(depth_items[:-1]) + (" and " if len(depth_items) == 2 else ", and ") + depth_items[-1]
-            rprs2_summary = ", ".join(rprs2_items[:-1]) + (" and " if len(rprs2_items) == 2 else ", and ") + rprs2_items[-1]
+            depth_summary = (
+                ", ".join(depth_items[:-1])
+                + (" and " if len(depth_items) == 2 else ", and ")
+                + depth_items[-1]
+            )
+            rprs2_summary = (
+                ", ".join(rprs2_items[:-1])
+                + (" and " if len(rprs2_items) == 2 else ", and ")
+                + rprs2_items[-1]
+            )
         elif depth_items:
             depth_summary = depth_items[0]
             rprs2_summary = rprs2_items[0]
@@ -357,11 +365,15 @@ class ReportGenerator:
                     continue
 
                 # Predicted metrics from transit_info.py
-                predicted = self._get_predicted_metrics(obj_folder, date, utc_date, exofop_id)
+                predicted = self._get_predicted_metrics(
+                    obj_folder, date, utc_date, exofop_id
+                )
 
                 # Naming follows TICID-01_<date>_OAN-SPM-2m1-OPTICAM_<gp-rp-ip>_notes.txt
                 band_order = {"gp": 1, "rp": 2, "ip": 3}
-                bands_suffix = "-".join(sorted(bands_data.keys(), key=lambda b: band_order.get(b, 99)))
+                bands_suffix = "-".join(
+                    sorted(bands_data.keys(), key=lambda b: band_order.get(b, 99))
+                )
                 filename = f"{exofop_id}-01_{date_compact}_OAN-SPM-2m1-OPTICAM_{bands_suffix}_notes.txt"
                 out_dir = obj_folder / "exofop" / date
                 out_file = out_dir / filename

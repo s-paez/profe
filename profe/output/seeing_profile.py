@@ -124,23 +124,56 @@ class SeeingProfilePlotter:
         trans = ax.get_xaxis_transform()
 
         ax.axvline(source, color="red", ls=":", label="Source Radius")
-        ax.text(source - 0.2, 0.95, f"{source} px ({source*scale:.1f}\")", color="red", 
-                rotation=90, va='top', ha='right', transform=trans, fontsize=9)
+        ax.text(
+            source - 0.2,
+            0.95,
+            f'{source} px ({source * scale:.1f}")',
+            color="red",
+            rotation=90,
+            va="top",
+            ha="right",
+            transform=trans,
+            fontsize=9,
+        )
 
         ax.axvline(sky_min, color="red", linestyle="--", label="Sky Min")
-        ax.text(sky_min - 0.2, 0.95, f"{sky_min:g} px ({sky_min*scale:.1f}\")", color="red", 
-                rotation=90, va='top', ha='right', transform=trans, fontsize=9)
+        ax.text(
+            sky_min - 0.2,
+            0.95,
+            f'{sky_min:g} px ({sky_min * scale:.1f}")',
+            color="red",
+            rotation=90,
+            va="top",
+            ha="right",
+            transform=trans,
+            fontsize=9,
+        )
 
         ax.axvline(sky_max, color="red", label="Sky Max")
-        ax.text(sky_max + 0.2, 0.95, f"{sky_max:g} px ({sky_max*scale:.1f}\")", color="red", 
-                rotation=90, va='top', ha='left', transform=trans, fontsize=9)
+        ax.text(
+            sky_max + 0.2,
+            0.95,
+            f'{sky_max:g} px ({sky_max * scale:.1f}")',
+            color="red",
+            rotation=90,
+            va="top",
+            ha="left",
+            transform=trans,
+            fontsize=9,
+        )
         ax.set_xlabel("Radius [pixels]")
         ax.set_ylabel("Counts")
         ax.set_title(title_str, fontsize=9)
         ax.legend()
 
         rp_path: Path = exofop_path(
-            obj_dir, date_folder.name, utc_date, exofop_obj, band, "_seeing-profile", ".png"
+            obj_dir,
+            date_folder.name,
+            utc_date,
+            exofop_obj,
+            band,
+            "_seeing-profile",
+            ".png",
         )
         rp_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(rp_path, dpi=300)
@@ -176,9 +209,13 @@ class SeeingProfilePlotter:
             ]
             for file_to_read in meas_files:
                 band: str = file_to_read.stem.split("_")[-1]
-                if self._is_processed(obj_dir, date_folder.name, utc_date, target, band):
+                if self._is_processed(
+                    obj_dir, date_folder.name, utc_date, target, band
+                ):
                     continue
-                self._generate_plot(obj_dir, date_folder, utc_date, target, file_to_read, band)
+                self._generate_plot(
+                    obj_dir, date_folder, utc_date, target, file_to_read, band
+                )
 
     def run(self, target: str | None = None) -> None:
         """Process all objects in organized_data.
