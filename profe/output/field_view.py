@@ -87,6 +87,8 @@ class FieldViewPlotter:
             selected_fits = fits_cands[0]
             target_row = data.iloc[0]
 
+        assert target_row is not None  # always set by the branches above
+
         with fits.open(selected_fits) as hdul:
             vis_data = hdul[0].data.astype(float)  # type: ignore[missing-attribute]
 
