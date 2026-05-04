@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 PROFE output plotting module.
 
@@ -16,6 +14,8 @@ Classes:
     TimeAveragingPlotter: Produces time-averaging noise curves.
     LightCurvePlotter: Creates light curve plots and corresponding CSV files.
 """
+
+from __future__ import annotations
 
 from .alt_az_centroid import AltAzGuidingPlotter
 from .comparison_stars import ComparisonStarsPlotter

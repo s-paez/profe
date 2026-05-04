@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """
 Generate radial profile plots (seeing profile) for EXOFOP submission.
 
 This module computes and plots the radial brightness profile of the target star
 using the photutils RadialProfile utility.
 """
+
+from __future__ import annotations
 
 import logging
 from pathlib import Path

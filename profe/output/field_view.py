@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """
 Generate aperture visualization plots (field view) for EXOFOP submission.
 
 This module overlays source and sky apertures on a scientific calibrated image
 to verify successful photometry.
 """
+
+from __future__ import annotations
 
 import logging
 from pathlib import Path

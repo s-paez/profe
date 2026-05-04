@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Comparison star light curve plotting for AIJ measurements.
 
@@ -19,6 +17,8 @@ Outputs are saved as PNG (DPI=300) in the ``exofop/<DATE>/`` directory.
 Already-processed (object, date, band) triples are detected by checking whether
 the expected output PNG exists on disk.
 """
+
+from __future__ import annotations
 
 import logging
 import os

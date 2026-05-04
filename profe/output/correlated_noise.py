@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Time-averaging noise analysis for light curves.
 
@@ -14,6 +12,8 @@ using the MC3 package.
 Already-processed (object, date) pairs are detected by checking whether the
 expected output directory contains PNG files, so no external state file is needed.
 """
+
+from __future__ import annotations
 
 import logging
 from multiprocessing import Pool, cpu_count

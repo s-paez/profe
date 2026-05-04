@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Light curve plotting and CSV export for AIJ measurements.
 
@@ -16,6 +14,8 @@ Outputs include:
 Already-processed (object, date) pairs are detected by checking whether the
 expected output PDF exists on disk, so no external state file is needed.
 """
+
+from __future__ import annotations
 
 import logging
 import os

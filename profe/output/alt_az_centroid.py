@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Alt-Az trajectory and star-centroid movement plotting.
 
@@ -14,6 +12,8 @@ These plots are useful for evaluating tracking performance and guiding stability
 Already-processed (target, date) pairs are detected by checking whether the
 expected output PNG exists on disk, so no external state file is needed.
 """
+
+from __future__ import annotations
 
 import logging
 from pathlib import Path
