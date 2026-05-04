@@ -1,24 +1,27 @@
 """
 Command-line interface for generating PROFE output products.
 
-This module coordinates the execution of all PROFE output-generating classes,
-including:
+This module coordinates the sequential execution of all PROFE
+output-generating classes:
 
-    - AltAzGuidingPlotter: Generates alt-azimuth and guiding (centroid) plots.
-    - LightCurvePlotter: Produces light curves and corresponding CSV files.
-    - TimeAveragingPlotter: Creates time-averaging plots for correlated noise
-      analysis.
-    - ExofopPlotter: Generates plots and products for EXOFOP submission.
+    1. AltAzGuidingPlotter: Altitude–Azimuth trajectory and centroid plots.
+    2. LightCurvePlotter: Multi-band light curves (PDF/PNG/CSV).
+    3. TimeAveragingPlotter: Red vs. white noise characterization.
+    4. FieldViewPlotter: Aperture visualization (field of view) plots.
+    5. SeeingProfilePlotter: Radial brightness profile plots.
+    6. ComparisonStarsPlotter: Comparison star light curves.
+    7. AstrometrySolver: WCS solving via Astrometry.net.
+    8. TransitDataManager: Transit timing retrieval from TTF.
+    9. ReportGenerator: Consolidated ExoFOP notes report.
 
-Each module skips already-processed (object, date) pairs by checking whether
-the expected output files exist on disk.
+Each module skips already-processed (object, date, band) triples by checking
+whether the expected output files exist on disk.
 
-Logs are saved to `logs/profe_out.log`.
+Logs are saved to ``logs/profe_output_<timestamp>.log``.
 """
 
 import logging
 
-# Import the processing classes
 from .alt_az_centroid import AltAzGuidingPlotter
 from .astrometry_out import AstrometrySolver
 from .comparison_stars import ComparisonStarsPlotter
@@ -51,7 +54,12 @@ def run_output(target: str | None = None) -> None:
         1. Run AltAzGuidingPlotter to produce alt-azimuth and centroid plots.
         2. Run LightCurvePlotter to generate light curve plots and CSV files.
         3. Run TimeAveragingPlotter to create time-averaging noise plots.
-        4. Run ExofopPlotter to prepare EXOFOP submission plots.
+        4. Run FieldViewPlotter to generate aperture visualization plots.
+        5. Run SeeingProfilePlotter to generate radial profile plots.
+        6. Run ComparisonStarsPlotter to generate comparison star plots.
+        7. Run AstrometrySolver to solve WCS via Astrometry.net.
+        8. Run TransitDataManager to retrieve transit times from TTF.
+        9. Run ReportGenerator to create consolidated ExoFOP notes.
 
     Returns:
         None

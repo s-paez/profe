@@ -41,8 +41,11 @@ def print_manual() -> None:
         \033[1m-o [TARGET], --output [TARGET]\033[0m
             Runs the post-processing and output generation stage.
             This utilizes AstroImageJ photometry tables (.tbl) to generate
-            Altitude-Azimuth tracks, Binned Light Curves with RMS error,
-            Time-averaging Correlated Noise plots, and ExoFOP files.
+            all scientific products: Alt-Az trajectory plots, multi-band
+            light curves (PDF/PNG/CSV), time-averaging noise plots,
+            field-of-view aperture plots, seeing profiles, comparison star
+            curves, WCS-solved FITS, transit timing data from TTF, and
+            consolidated ExoFOP notes reports.
             Optionally specify a TARGET name (e.g., TOI-1234) to generate
             outputs only for that target.
 
