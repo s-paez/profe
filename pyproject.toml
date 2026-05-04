@@ -1,6 +1,6 @@
 [project]
 name = "profe"
-version = "0.1.4"
+version = "1.0.0"
 description = "Reduction Pipeline for OPTICAM Photometry of Exoplanets (PROFE in spanish)"
 authors = [
     {name = "S. Páez",email = "spaez@astro.unam.mx"},

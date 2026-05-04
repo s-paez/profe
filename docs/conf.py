@@ -32,7 +32,7 @@ project = "profe"
 copyright = "2026, S. Paez, Y. Gómez Maqueo Chew, L. H. Hebb"
 author = "S. Paez, Y. Gómez Maqueo Chew, L. H. Hebb"
 root_doc = "index"
-release = "0.1.4"
+release = "1.0.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
