@@ -261,7 +261,7 @@ class ComparisonStarsPlotter:
         colors = [cmap(i / max(n_stars - 1, 1) * 0.7) for i in range(n_stars)]
 
         time_col = "BJD_TDB"
-        t0 = float(np.nanmin(df[time_col].values))
+        t0 = float(np.nanmin(np.asarray(df[time_col].values)))
 
         fig, axs = plt.subplots(
             6,
@@ -280,7 +280,7 @@ class ComparisonStarsPlotter:
             flux_col = f"rel_flux_{comp_id}"
             err_col = f"rel_flux_err_{comp_id}"
 
-            t = df[time_col].values - t0
+            t = np.asarray(df[time_col].values) - t0
             flux_vals = np.asarray(df[flux_col].values, dtype=float)
             err_vals = np.asarray(df[err_col].values, dtype=float)
             median_flux = np.nanmedian(flux_vals)
@@ -362,7 +362,7 @@ class ComparisonStarsPlotter:
         ]
 
         for idx, col, ylabel in panel_vars:
-            t = df[time_col].values - t0
+            t = np.asarray(df[time_col].values) - t0
             y = df[col]
             color = "darkslateblue" if idx == 1 else "gray"
             axs[idx].plot(t, y, ".", alpha=0.5, label="_nolegend_", ms=4, color=color)
@@ -370,7 +370,7 @@ class ComparisonStarsPlotter:
             axs[idx].set_ylabel(ylabel)
 
         # ── Panel 5: Centroid Shift ──────────────────────────────────────
-        time_xy = df[time_col].values - t0
+        time_xy = np.asarray(df[time_col].values) - t0
         x_fits = df["X(FITS)_T1"]
         # Find first non-NaN indices
         x_first = x_fits.dropna().iloc[0] if not x_fits.dropna().empty else 0
