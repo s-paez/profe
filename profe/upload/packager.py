@@ -61,7 +61,37 @@ class ExoFOPPackager:
 
     def _process_date(self, target_name: str, local_date: str, date_folder: Path) -> None:
         """Process a specific date folder for a target."""
-        # For Step 4, we just identify that we found the folder.
-        # Steps 5, 6 will implement the file collection, tag prompt, and tar creation.
         logger.info(f"Found pending upload for {target_name} on {local_date} at {date_folder}")
+        
+        print(f"\n[{target_name} | {local_date}]")
+        data_tag = input(f"Ingresa el Data Tag para {target_name} de la fecha {local_date}: ").strip()
+        
+        if not data_tag:
+            logger.warning(f"No Data Tag provided. Skipping {target_name} on {local_date}.")
+            return
+
+        collected_files = []
+        for file_path in date_folder.rglob("*"):
+            if not file_path.is_file():
+                continue
+                
+            name = file_path.name
+            if name.startswith("."):
+                continue
+            if name.endswith(".plotcfg") or name.endswith(".apertures"):
+                continue
+            if name.endswith("exofop_metadata.txt"):
+                continue
+                
+            collected_files.append(file_path)
+            
+        if not collected_files:
+            logger.warning(f"No files found to upload for {target_name} on {local_date}.")
+            return
+            
+        logger.info(f"Collected {len(collected_files)} files for {target_name}.")
+        self._package_files(target_name, local_date, data_tag, collected_files)
+
+    def _package_files(self, target_name: str, local_date: str, data_tag: str, files: List[Path]) -> None:
+        # TODO: Steps 6 and 7 (descriptor and tarball)
         pass
