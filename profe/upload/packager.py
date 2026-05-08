@@ -82,6 +82,8 @@ class ExoFOPPackager:
                 continue
             if name.endswith("exofop_metadata.txt"):
                 continue
+            if "fitpanel" in name.lower():
+                continue
                 
             collected_files.append(file_path)
             
@@ -93,5 +95,71 @@ class ExoFOPPackager:
         self._package_files(target_name, local_date, data_tag, collected_files)
 
     def _package_files(self, target_name: str, local_date: str, data_tag: str, files: List[Path]) -> None:
-        # TODO: Steps 6 and 7 (descriptor and tarball)
-        pass
+        date_compact = local_date.replace("-", "")
+        
+        # Find next available sequence number for the prefix spYYYYMMDD-nnn
+        prefix = "sp"
+        seq = 1
+        for i in range(1, 1000):
+            if not (self.tmp_dir / f"{prefix}{date_compact}-{i:03d}.tar").exists():
+                seq = i
+                break
+                
+        base_name = f"{prefix}{date_compact}-{seq:03d}"
+        descriptor_name = f"{base_name}.txt"
+        descriptor_path = self.tmp_dir / descriptor_name
+        
+        lines = []
+        for f in files:
+            desc = self._get_description(f.name)
+            # Format: FileName|DataTag|Group|ProprietaryPeriod|Description
+            line = f"{f.name}|{data_tag}|tfopwg|12|{desc}"
+            lines.append(line)
+            
+        try:
+            with open(descriptor_path, "w") as out:
+                out.write("\n".join(lines) + "\n")
+            logger.info(f"Generated descriptor file {descriptor_name}")
+        except Exception as e:
+            logger.error(f"Failed to create descriptor file {descriptor_path}: {e}")
+            return
+            
+        self._create_tarball(target_name, local_date, descriptor_path, files)
+
+    def _get_description(self, file_name: str) -> str:
+        """Map filenames to ExoFOP SG1 descriptions."""
+        lower_name = file_name.lower()
+        if "notes.txt" in lower_name:
+            return "Observing Notes"
+        elif "field" in lower_name and lower_name.endswith((".png", ".pdf")):
+            return "Field of View"
+        elif "lightcurve" in lower_name and lower_name.endswith((".png", ".pdf")):
+            return "Light Curve Plot"
+        elif "profile" in lower_name and lower_name.endswith((".png", ".pdf")):
+            return "Seeing Profile"
+        elif "comparison" in lower_name and lower_name.endswith((".png", ".pdf")):
+            return "Comparison Star Plot"
+        elif lower_name.endswith(".fits"):
+            return "WCS FITS Image"
+        elif lower_name.endswith((".csv", ".tbl")):
+            return "Measurement Table"
+        return "Data Product"
+
+    def _create_tarball(self, target_name: str, local_date: str, descriptor: Path, files: List[Path]) -> None:
+        import tarfile
+        tar_name = descriptor.with_suffix(".tar")
+        
+        try:
+            with tarfile.open(tar_name, "w") as tar:
+                # ExoFOP requires a single flat directory with no subdirectories
+                tar.add(descriptor, arcname=descriptor.name)
+                for f in files:
+                    tar.add(f, arcname=f.name)
+                    
+            logger.info(f"Successfully packaged {len(files) + 1} files into {tar_name.name}")
+            
+            # Update the tracking JSON
+            self.tracker.update_status(target_name, local_date, "prepared", tar_file=tar_name.name)
+            
+        except Exception as e:
+            logger.error(f"Failed to create tarball {tar_name}: {e}")
