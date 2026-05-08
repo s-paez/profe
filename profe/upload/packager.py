@@ -75,6 +75,10 @@ class ExoFOPPackager:
             if not file_path.is_file():
                 continue
                 
+            # Ignorar completamente la carpeta AIJ
+            if "AIJ" in file_path.parts:
+                continue
+                
             name = file_path.name
             if name.startswith("."):
                 continue
