@@ -1,0 +1,67 @@
+import logging
+from pathlib import Path
+from typing import List
+
+from .utils import UploadTracker
+
+logger = logging.getLogger(__name__)
+
+class ExoFOPPackager:
+    """Handles the collection and packaging of ExoFOP data products."""
+
+    def __init__(self, targets: List[str] | None = None):
+        self.base_dir = Path.cwd()
+        self.data_dir = self.base_dir / "organized_data"
+        self.logs_dir = self.base_dir / "logs"
+        self.tmp_dir = self.base_dir / "tmp" / "exofop_uploads"
+        
+        self.targets = [t.lower() for t in targets] if targets else []
+        self.tracker = UploadTracker(self.logs_dir)
+        
+    def run_prepare(self) -> None:
+        """Scan directories and prepare uploads for pending target/date combinations."""
+        if not self.data_dir.exists():
+            logger.error(f"Data directory {self.data_dir} does not exist.")
+            return
+
+        self.tmp_dir.mkdir(parents=True, exist_ok=True)
+        found_any = False
+
+        for obj_folder in sorted(self.data_dir.iterdir()):
+            if not obj_folder.is_dir():
+                continue
+                
+            target_name = obj_folder.name
+            if self.targets and target_name.lower() not in self.targets:
+                continue
+
+            exofop_dir = obj_folder / "exofop"
+            if not exofop_dir.exists():
+                logger.info(f"No exofop data found for {target_name}. Skipping.")
+                continue
+
+            for date_folder in sorted(exofop_dir.iterdir()):
+                if not date_folder.is_dir():
+                    continue
+
+                local_date = date_folder.name
+                
+                # Check status
+                status = self.tracker.get_status(target_name, local_date)
+                if status in ("prepared", "uploaded"):
+                    logger.info(f"Target {target_name} on {local_date} is already {status}. Skipping.")
+                    continue
+                    
+                found_any = True
+                logger.info(f"Scanning target {target_name} on {local_date}...")
+                self._process_date(target_name, local_date, date_folder)
+
+        if not found_any:
+            logger.info("No new data found to prepare.")
+
+    def _process_date(self, target_name: str, local_date: str, date_folder: Path) -> None:
+        """Process a specific date folder for a target."""
+        # For Step 4, we just identify that we found the folder.
+        # Steps 5, 6 will implement the file collection, tag prompt, and tar creation.
+        logger.info(f"Found pending upload for {target_name} on {local_date} at {date_folder}")
+        pass

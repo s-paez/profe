@@ -1,5 +1,6 @@
 import logging
 from typing import List
+from .packager import ExoFOPPackager
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,8 @@ def run_prepare_upload(targets: List[str]) -> None:
     else:
         logger.info("No specific targets provided. Processing all pending targets.")
         
-    # TODO: Implement the packaging logic (Step 4, 5, 6)
-    pass
+    packager = ExoFOPPackager(targets)
+    packager.run_prepare()
 
 def run_upload(targets: List[str]) -> None:
     """
