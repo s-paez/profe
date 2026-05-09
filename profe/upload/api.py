@@ -40,10 +40,13 @@ class ExoFOPClient:
 
     def upload_tarball(self, tar_path: Path) -> bool:
         """
-        Logs into ExoFOP and uploads the specified tarball.
-        Returns True if successful or already exists, False otherwise.
+        Logs into ExoFOP, extracts the tarball, and uploads each file individually
+        via the Single File Upload endpoint (insert_file.php) to preserve original names.
         """
         import requests
+        import tarfile
+        import tempfile
+        import json
         from bs4 import BeautifulSoup
         
         creds = self.load_credentials()
@@ -53,14 +56,14 @@ class ExoFOPClient:
         user, password = creds
         
         login_url = "https://exofop.ipac.caltech.edu/tess/password_check.php"
-        upload_url = "https://exofop.ipac.caltech.edu/tess/newbulk_upload.php"
+        upload_url = "https://exofop.ipac.caltech.edu/tess/insert_file.php"
         
         with requests.Session() as session:
             # Login payload
             login_data = {
-                "user": user,
+                "username": user,
                 "password": password,
-                "submit": "Log In"
+                "ref": "login_user"
             }
             logger.info("Authenticating with ExoFOP...")
             try:
@@ -70,30 +73,95 @@ class ExoFOPClient:
                 logger.error(f"Network error during ExoFOP login: {e}")
                 return False
                 
-            logger.info(f"Uploading {tar_path.name} to ExoFOP...")
-            try:
-                with open(tar_path, "rb") as f:
-                    # Using 'fileToUpload' as expected by ExoFOP bulk upload forms
-                    files = {"fileToUpload": (tar_path.name, f, "application/x-tar")}
-                    upload_data = {"submit": "Upload File"}
-                    res = session.post(upload_url, files=files, data=upload_data, timeout=120)
-                    res.raise_for_status()
-            except Exception as e:
-                logger.error(f"Network error during file upload: {e}")
-                return False
+            # Extract tarball to temporary directory
+            with tempfile.TemporaryDirectory() as tmpdir:
+                try:
+                    with tarfile.open(tar_path, "r") as tar:
+                        tar.extractall(path=tmpdir)
+                except Exception as e:
+                    logger.error(f"Failed to extract tarball {tar_path.name}: {e}")
+                    return False
+                    
+                tmp_path = Path(tmpdir)
+                meta_file = tmp_path / "upload_metadata.json"
+                if not meta_file.exists():
+                    logger.error(f"Metadata file upload_metadata.json not found in {tar_path.name}")
+                    return False
+                    
+                with open(meta_file, "r") as f:
+                    metadata = json.load(f)
+                    
+                target_name = metadata.get("target_name")
+                data_tag = metadata.get("data_tag")
                 
-            # Parse HTML response
-            soup = BeautifulSoup(res.text, "html.parser")
-            text_content = soup.get_text().lower()
-            
-            if "already exists" in text_content:
-                logger.warning(f"ExoFOP reported that {tar_path.name} or its contents already exist.")
-                return True
-            elif "error" in text_content or "failed" in text_content or "not authorized" in text_content:
-                logger.error("ExoFOP reported an error during upload. Please check the credentials and website.")
-                # We can print the text for debugging
-                logger.debug(f"Response text: {soup.get_text(strip=True)[:500]}")
-                return False
-            else:
-                logger.info(f"ExoFOP accepted {tar_path.name} successfully.")
-                return True
+                # Derive TID and Planet for the form
+                from profe.output.naming import get_tic_from_toi
+                clean_target = target_name.upper().replace(".01", "").replace("-01", "")
+                if clean_target.startswith("TOI"):
+                    tid = get_tic_from_toi(clean_target).replace("TIC", "").replace("-", "").strip()
+                    planet_val = f"{clean_target.replace('-', ' ')}.01" # e.g. 'TOI 7393.01'
+                else:
+                    tid = clean_target.replace("TIC", "").replace("-", "").strip()
+                    planet_val = "0" # '0' means no planet assigned, just the star
+                    
+                files_to_upload = [p for p in tmp_path.rglob("*") if p.is_file() and p.name != "upload_metadata.json"]
+                logger.info(f"Found {len(files_to_upload)} files to upload individually.")
+                
+                all_success = True
+                
+                for file_path in files_to_upload:
+                    # Determine File Type and Description
+                    file_type = "Light_Curve"  # Per user request, always use Light_Curve
+                    lname = file_path.name.lower()
+                    if "notes.txt" in lname:
+                        file_desc = "Observing Notes"
+                    elif "field" in lname and lname.endswith((".png", ".pdf")):
+                        file_desc = "Field of View"
+                    elif "lightcurve" in lname and lname.endswith((".png", ".pdf")):
+                        file_desc = "Light Curve Plot"
+                    elif "profile" in lname and lname.endswith((".png", ".pdf")):
+                        file_desc = "Seeing Profile"
+                    elif "comparison" in lname and lname.endswith((".png", ".pdf")):
+                        file_desc = "Comparison Stars Light Curve Plot"
+                    elif lname.endswith(".fits"):
+                        file_desc = "WCS FITS Image"
+                    elif lname.endswith((".csv", ".tbl")):
+                        file_desc = "AstroImageJ full measurement table"
+                    else:
+                        file_desc = "Data Product"
+                        
+                    upload_data = {
+                        "tid": tid,
+                        "planet": planet_val,
+                        "file_type": file_type,
+                        "file_desc": file_desc,
+                        "file_tag": data_tag,
+                        "groupname": "tfopwg",
+                        "propflag": "on" # Checkbox for 12 months proprietary
+                    }
+                    
+                    logger.info(f"Uploading {file_path.name} ({file_type})...")
+                    try:
+                        with open(file_path, "rb") as f:
+                            files_dict = {"file_name": (file_path.name, f)}
+                            res = session.post(upload_url, data=upload_data, files=files_dict, timeout=60)
+                            res.raise_for_status()
+                    except Exception as e:
+                        logger.error(f"Network error uploading {file_path.name}: {e}")
+                        all_success = False
+                        continue
+                        
+                    soup = BeautifulSoup(res.text, "html.parser")
+                    text_content = soup.get_text().lower()
+                    
+                    if "already exists" in text_content:
+                        logger.warning(f"File {file_path.name} already exists on ExoFOP.")
+                    elif "invalid" in text_content or "error" in text_content or "not authorized" in text_content:
+                        logger.error(f"ExoFOP rejected {file_path.name}.")
+                        clean_text = soup.get_text(separator=" | ", strip=True)
+                        logger.error(f"Response: {clean_text[:500]}...")
+                        all_success = False
+                    else:
+                        logger.info(f"Successfully uploaded {file_path.name}.")
+                        
+                return all_success

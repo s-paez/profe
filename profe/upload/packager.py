@@ -75,7 +75,6 @@ class ExoFOPPackager:
             if not file_path.is_file():
                 continue
                 
-            # Ignorar completamente la carpeta AIJ
             if "AIJ" in file_path.parts:
                 continue
                 
@@ -87,6 +86,8 @@ class ExoFOPPackager:
             if name.endswith("exofop_metadata.txt"):
                 continue
             if "fitpanel" in name.lower():
+                continue
+            if "transit_times.dat" in name.lower():
                 continue
                 
             collected_files.append(file_path)
@@ -101,69 +102,43 @@ class ExoFOPPackager:
     def _package_files(self, target_name: str, local_date: str, data_tag: str, files: List[Path]) -> None:
         date_compact = local_date.replace("-", "")
         
-        # Find next available sequence number for the prefix spYYYYMMDD-nnn
-        prefix = "sp"
+        # Find next available sequence number
+        prefix = "pa"
         seq = 1
         for i in range(1, 1000):
             if not (self.tmp_dir / f"{prefix}{date_compact}-{i:03d}.tar").exists():
                 seq = i
                 break
                 
-        base_name = f"{prefix}{date_compact}-{seq:03d}"
-        descriptor_name = f"{base_name}.txt"
-        descriptor_path = self.tmp_dir / descriptor_name
+        tar_name = f"{prefix}{date_compact}-{seq:03d}.tar"
+        tar_path = self.tmp_dir / tar_name
         
-        lines = []
-        for f in files:
-            desc = self._get_description(f.name)
-            # Format: FileName|DataTag|Group|ProprietaryPeriod|Description
-            line = f"{f.name}|{data_tag}|tfopwg|12|{desc}"
-            lines.append(line)
-            
-        try:
-            with open(descriptor_path, "w") as out:
-                out.write("\n".join(lines) + "\n")
-            logger.info(f"Generated descriptor file {descriptor_name}")
-        except Exception as e:
-            logger.error(f"Failed to create descriptor file {descriptor_path}: {e}")
-            return
-            
-        self._create_tarball(target_name, local_date, descriptor_path, files)
-
-    def _get_description(self, file_name: str) -> str:
-        """Map filenames to ExoFOP SG1 descriptions."""
-        lower_name = file_name.lower()
-        if "notes.txt" in lower_name:
-            return "Observing Notes"
-        elif "field" in lower_name and lower_name.endswith((".png", ".pdf")):
-            return "Field of View"
-        elif "lightcurve" in lower_name and lower_name.endswith((".png", ".pdf")):
-            return "Light Curve Plot"
-        elif "profile" in lower_name and lower_name.endswith((".png", ".pdf")):
-            return "Seeing Profile"
-        elif "comparison" in lower_name and lower_name.endswith((".png", ".pdf")):
-            return "Comparison Star Plot"
-        elif lower_name.endswith(".fits"):
-            return "WCS FITS Image"
-        elif lower_name.endswith((".csv", ".tbl")):
-            return "Measurement Table"
-        return "Data Product"
-
-    def _create_tarball(self, target_name: str, local_date: str, descriptor: Path, files: List[Path]) -> None:
+        # Prepare metadata JSON for the API uploader
+        import json
+        metadata = {
+            "target_name": target_name,
+            "data_tag": data_tag,
+            "local_date": local_date
+        }
+        meta_path = self.tmp_dir / "upload_metadata.json"
+        with open(meta_path, "w") as f:
+            json.dump(metadata, f)
+        
         import tarfile
-        tar_name = descriptor.with_suffix(".tar")
-        
         try:
-            with tarfile.open(tar_name, "w") as tar:
-                # ExoFOP requires a single flat directory with no subdirectories
-                tar.add(descriptor, arcname=descriptor.name)
-                for f in files:
-                    tar.add(f, arcname=f.name)
+            with tarfile.open(tar_path, "w") as tar:
+                # Add metadata file
+                tar.add(meta_path, arcname="upload_metadata.json")
+                
+                # Add all scientific files with their ORIGINAL names
+                for file_path in files:
+                    tar.add(file_path, arcname=file_path.name)
                     
-            logger.info(f"Successfully packaged {len(files) + 1} files into {tar_name.name}")
-            
-            # Update the tracking JSON
-            self.tracker.update_status(target_name, local_date, "prepared", tar_file=tar_name.name)
-            
+            logger.info(f"Packaged {len(files)} files into {tar_path}")
+            # Mark as prepared
+            self.tracker.update_status(target_name, local_date, "prepared", tar_file=tar_name)
         except Exception as e:
-            logger.error(f"Failed to create tarball {tar_name}: {e}")
+            logger.error(f"Failed to create tarball {tar_path}: {e}")
+        finally:
+            if meta_path.exists():
+                meta_path.unlink()
