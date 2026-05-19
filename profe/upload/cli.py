@@ -53,22 +53,22 @@ def run_upload(targets: List[str]) -> None:
         for date, info in data[target].items():
             if info.get("status") == "prepared":
                 found_any = True
-                tar_name = info.get("tar_file")
-                if not tar_name:
-                    logger.error(f"Missing tar_file name for {target} on {date}")
+                package_name = info.get("package_file")
+                if not package_name:
+                    logger.error(f"Missing package_file name for {target} on {date}")
                     continue
 
-                tar_path = Path.cwd() / "tmp" / "exofop_uploads" / tar_name
-                if not tar_path.exists():
-                    logger.error(f"Prepared tarball not found: {tar_path}")
+                package_path = Path.cwd() / "tmp" / "exofop_uploads" / package_name
+                if not package_path.exists():
+                    logger.error(f"Prepared package manifest not found: {package_path}")
                     continue
 
-                success = client.upload_tarball(tar_path)
+                success = client.upload_package(package_path)
                 if success:
-                    tracker.update_status(target, date, "uploaded", tar_file=tar_name)
+                    tracker.update_status(target, date, "uploaded", package_file=package_name)
                     logger.info(f"Marked {target} on {date} as uploaded.")
                 else:
-                    logger.error(f"Failed to upload {tar_name}")
+                    logger.error(f"Failed to upload package {package_name}")
 
     if not found_any:
         logger.info("No prepared targets found to upload.")

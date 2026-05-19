@@ -115,49 +115,35 @@ class ExoFOPPackager:
     def _package_files(
         self, target_name: str, local_date: str, data_tag: str, files: List[Path]
     ) -> None:
+        import json
         date_compact = local_date.replace("-", "")
 
         # Find next available sequence number
-        prefix = "pa"
+        prefix = "package_"
         seq = 1
         for i in range(1, 1000):
-            if not (self.tmp_dir / f"{prefix}{date_compact}-{i:03d}.tar").exists():
+            if not (self.tmp_dir / f"{prefix}{date_compact}-{i:03d}.json").exists():
                 seq = i
                 break
 
-        tar_name = f"{prefix}{date_compact}-{seq:03d}.tar"
-        tar_path = self.tmp_dir / tar_name
-
-        # Prepare metadata JSON for the API uploader
-        import json
+        package_name = f"{prefix}{date_compact}-{seq:03d}.json"
+        package_path = self.tmp_dir / package_name
 
         metadata = {
             "target_name": target_name,
             "data_tag": data_tag,
             "local_date": local_date,
+            "files": [str(f.resolve()) for f in files]
         }
-        meta_path = self.tmp_dir / "upload_metadata.json"
-        with open(meta_path, "w") as f:
-            json.dump(metadata, f)
-
-        import tarfile
 
         try:
-            with tarfile.open(tar_path, "w") as tar:
-                # Add metadata file
-                tar.add(meta_path, arcname="upload_metadata.json")
+            with open(package_path, "w") as f:
+                json.dump(metadata, f, indent=4)
 
-                # Add all scientific files with their ORIGINAL names
-                for file_path in files:
-                    tar.add(file_path, arcname=file_path.name)
-
-            logger.info(f"Packaged {len(files)} files into {tar_path}")
+            logger.info(f"Created metadata manifest for {len(files)} files at {package_path}")
             # Mark as prepared
             self.tracker.update_status(
-                target_name, local_date, "prepared", tar_file=tar_name
+                target_name, local_date, "prepared", package_file=package_name
             )
         except Exception as e:
-            logger.error(f"Failed to create tarball {tar_path}: {e}")
-        finally:
-            if meta_path.exists():
-                meta_path.unlink()
+            logger.error(f"Failed to create metadata manifest {package_path}: {e}")

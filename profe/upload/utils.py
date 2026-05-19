@@ -39,7 +39,7 @@ class UploadTracker:
             logger.error(f"Error writing tracking file {self.tracker_file}: {e}")
 
     def update_status(
-        self, target: str, date: str, status: str, tar_file: str = None
+        self, target: str, date: str, status: str, package_file: str = None
     ) -> None:
         """
         Update the status of an upload for a specific target and date.
@@ -48,7 +48,7 @@ class UploadTracker:
             target: The target name or TIC ID (e.g., 'TOI-3884').
             date: The local observation date (e.g., '2025-02-23').
             status: The status string ('prepared', 'uploaded', etc.).
-            tar_file: The name of the prepared .tar file.
+            package_file: The name of the prepared package JSON file.
         """
         data = self.read_tracking()
 
@@ -61,8 +61,8 @@ class UploadTracker:
         data[target][date]["status"] = status
         data[target][date]["timestamp"] = datetime.utcnow().isoformat() + "Z"
 
-        if tar_file is not None:
-            data[target][date]["tar_file"] = tar_file
+        if package_file is not None:
+            data[target][date]["package_file"] = package_file
 
         self.write_tracking(data)
 
@@ -71,7 +71,7 @@ class UploadTracker:
         data = self.read_tracking()
         return data.get(target, {}).get(date, {}).get("status", "pending")
 
-    def get_tar_file(self, target: str, date: str) -> str:
-        """Get the associated .tar file name for a prepared target and date."""
+    def get_package_file(self, target: str, date: str) -> str:
+        """Get the associated package file name for a prepared target and date."""
         data = self.read_tracking()
-        return data.get(target, {}).get(date, {}).get("tar_file")
+        return data.get(target, {}).get(date, {}).get("package_file")
