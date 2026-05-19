@@ -221,7 +221,7 @@ PROFE can directly upload all standardized products to the ExoFOP single-file up
 
 1. **Prepare Upload** (`profe -pu [TARGET]`):
    Scans the local `exofop/` directories and prompts you for a **Data Tag** for each pending date. It collects the valid files and generates an intermediate package with metadata.
-   
+
 2. **Upload** (`profe -u [TARGET]`):
    Extracts the prepared packages and iteratively uploads each file individually to ExoFOP.
    *   Authenticates using your local `.exofop_credentials` file.

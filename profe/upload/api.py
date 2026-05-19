@@ -4,6 +4,7 @@ from typing import Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class ExoFOPClient:
     """Handles communication with the ExoFOP-TESS website."""
 
@@ -48,23 +49,19 @@ class ExoFOPClient:
         import tempfile
         import json
         from bs4 import BeautifulSoup
-        
+
         creds = self.load_credentials()
         if not creds:
             return False
-            
+
         user, password = creds
-        
+
         login_url = "https://exofop.ipac.caltech.edu/tess/password_check.php"
         upload_url = "https://exofop.ipac.caltech.edu/tess/insert_file.php"
-        
+
         with requests.Session() as session:
             # Login payload
-            login_data = {
-                "username": user,
-                "password": password,
-                "ref": "login_user"
-            }
+            login_data = {"username": user, "password": password, "ref": "login_user"}
             logger.info("Authenticating with ExoFOP...")
             try:
                 res = session.post(login_url, data=login_data, timeout=30)
@@ -72,7 +69,7 @@ class ExoFOPClient:
             except Exception as e:
                 logger.error(f"Network error during ExoFOP login: {e}")
                 return False
-                
+
             # Extract tarball to temporary directory
             with tempfile.TemporaryDirectory() as tmpdir:
                 try:
@@ -81,37 +78,55 @@ class ExoFOPClient:
                 except Exception as e:
                     logger.error(f"Failed to extract tarball {tar_path.name}: {e}")
                     return False
-                    
+
                 tmp_path = Path(tmpdir)
                 meta_file = tmp_path / "upload_metadata.json"
                 if not meta_file.exists():
-                    logger.error(f"Metadata file upload_metadata.json not found in {tar_path.name}")
+                    logger.error(
+                        f"Metadata file upload_metadata.json not found in {tar_path.name}"
+                    )
                     return False
-                    
+
                 with open(meta_file, "r") as f:
                     metadata = json.load(f)
-                    
+
                 target_name = metadata.get("target_name")
                 data_tag = metadata.get("data_tag")
-                
+
                 # Derive TID and Planet for the form
                 from profe.output.naming import get_tic_from_toi
+
                 clean_target = target_name.upper().replace(".01", "").replace("-01", "")
                 if clean_target.startswith("TOI"):
-                    tid = get_tic_from_toi(clean_target).replace("TIC", "").replace("-", "").strip()
-                    planet_val = f"{clean_target.replace('-', ' ')}.01" # e.g. 'TOI 7393.01'
+                    tid = (
+                        get_tic_from_toi(clean_target)
+                        .replace("TIC", "")
+                        .replace("-", "")
+                        .strip()
+                    )
+                    planet_val = (
+                        f"{clean_target.replace('-', ' ')}.01"  # e.g. 'TOI 7393.01'
+                    )
                 else:
                     tid = clean_target.replace("TIC", "").replace("-", "").strip()
-                    planet_val = "0" # '0' means no planet assigned, just the star
-                    
-                files_to_upload = [p for p in tmp_path.rglob("*") if p.is_file() and p.name != "upload_metadata.json"]
-                logger.info(f"Found {len(files_to_upload)} files to upload individually.")
-                
+                    planet_val = "0"  # '0' means no planet assigned, just the star
+
+                files_to_upload = [
+                    p
+                    for p in tmp_path.rglob("*")
+                    if p.is_file() and p.name != "upload_metadata.json"
+                ]
+                logger.info(
+                    f"Found {len(files_to_upload)} files to upload individually."
+                )
+
                 all_success = True
-                
+
                 for file_path in files_to_upload:
                     # Determine File Type and Description
-                    file_type = "Light_Curve"  # Per user request, always use Light_Curve
+                    file_type = (
+                        "Light_Curve"  # Per user request, always use Light_Curve
+                    )
                     lname = file_path.name.lower()
                     if "notes.txt" in lname:
                         file_desc = "Observing Notes"
@@ -129,7 +144,7 @@ class ExoFOPClient:
                         file_desc = "AstroImageJ full measurement table"
                     else:
                         file_desc = "Data Product"
-                        
+
                     upload_data = {
                         "tid": tid,
                         "planet": planet_val,
@@ -137,31 +152,42 @@ class ExoFOPClient:
                         "file_desc": file_desc,
                         "file_tag": data_tag,
                         "groupname": "tfopwg",
-                        "propflag": "on" # Checkbox for 12 months proprietary
+                        "propflag": "on",  # Checkbox for 12 months proprietary
                     }
-                    
+
                     logger.info(f"Uploading {file_path.name} ({file_type})...")
                     try:
                         with open(file_path, "rb") as f:
                             files_dict = {"file_name": (file_path.name, f)}
-                            res = session.post(upload_url, data=upload_data, files=files_dict, timeout=60)
+                            res = session.post(
+                                upload_url,
+                                data=upload_data,
+                                files=files_dict,
+                                timeout=60,
+                            )
                             res.raise_for_status()
                     except Exception as e:
                         logger.error(f"Network error uploading {file_path.name}: {e}")
                         all_success = False
                         continue
-                        
+
                     soup = BeautifulSoup(res.text, "html.parser")
                     text_content = soup.get_text().lower()
-                    
+
                     if "already exists" in text_content:
-                        logger.warning(f"File {file_path.name} already exists on ExoFOP.")
-                    elif "invalid" in text_content or "error" in text_content or "not authorized" in text_content:
+                        logger.warning(
+                            f"File {file_path.name} already exists on ExoFOP."
+                        )
+                    elif (
+                        "invalid" in text_content
+                        or "error" in text_content
+                        or "not authorized" in text_content
+                    ):
                         logger.error(f"ExoFOP rejected {file_path.name}.")
                         clean_text = soup.get_text(separator=" | ", strip=True)
                         logger.error(f"Response: {clean_text[:500]}...")
                         all_success = False
                     else:
                         logger.info(f"Successfully uploaded {file_path.name}.")
-                        
+
                 return all_success

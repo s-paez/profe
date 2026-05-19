@@ -6,6 +6,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+
 class UploadTracker:
     """Manages the tracking of ExoFOP uploads to prevent duplicates."""
 
@@ -37,10 +38,12 @@ class UploadTracker:
         except Exception as e:
             logger.error(f"Error writing tracking file {self.tracker_file}: {e}")
 
-    def update_status(self, target: str, date: str, status: str, tar_file: str = None) -> None:
+    def update_status(
+        self, target: str, date: str, status: str, tar_file: str = None
+    ) -> None:
         """
         Update the status of an upload for a specific target and date.
-        
+
         Args:
             target: The target name or TIC ID (e.g., 'TOI-3884').
             date: The local observation date (e.g., '2025-02-23').
@@ -48,19 +51,19 @@ class UploadTracker:
             tar_file: The name of the prepared .tar file.
         """
         data = self.read_tracking()
-        
+
         if target not in data:
             data[target] = {}
-            
+
         if date not in data[target]:
             data[target][date] = {}
-            
+
         data[target][date]["status"] = status
         data[target][date]["timestamp"] = datetime.utcnow().isoformat() + "Z"
-        
+
         if tar_file is not None:
             data[target][date]["tar_file"] = tar_file
-            
+
         self.write_tracking(data)
 
     def get_status(self, target: str, date: str) -> str:

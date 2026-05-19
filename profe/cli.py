@@ -211,6 +211,7 @@ def main() -> None:
         setup_logging("prepare_upload")
         try:
             from profe.upload.cli import run_prepare_upload
+
             run_prepare_upload(targets=args.prepare_upload)
         except ImportError as e:
             print(f"Error importing upload module: {e}")
@@ -220,6 +221,7 @@ def main() -> None:
         setup_logging("upload")
         try:
             from profe.upload.cli import run_upload
+
             run_upload(targets=args.upload)
         except ImportError as e:
             print(f"Error importing upload module: {e}")

@@ -131,18 +131,18 @@ class ReportGenerator:
         """Generate a metadata file containing parameters required for ExoFOP upload."""
         date_compact = utc_date.replace("-", "")
         meta_file = out_dir / f"{exofop_id}-01_{date_compact}_exofop_metadata.txt"
-        
+
         if meta_file.exists():
             logger.info(f"Skipping {meta_file.name}: already exists.")
             return
-        
+
         lines = [
             f"ExoFOP Metadata for {exofop_id} on {utc_date}",
             "-" * 40,
             f"Observation Date UT: {utc_date}",
-            ""
+            "",
         ]
-        
+
         for band, metrics in bands_data.items():
             lines.append(f"--- Band: {band} ---")
             scale = metrics.get("scale", 0)
@@ -153,14 +153,14 @@ class ReportGenerator:
             dur_str = f"{duration:.2f}" if duration is not None else "N/A"
             ap_px = metrics.get("ap_px", 0)
             ap_arcsec = ap_px * scale
-            
+
             lines.append(f"Pixel Scale (arcsec): {scale}")
             lines.append(f"Estimated PSF (arcsec): {psf_arcsec:.2f}")
             lines.append(f"Photometric Aperture Radius (arcsec): {ap_arcsec:.2f}")
             lines.append(f"Observation Duration (minutes): {dur_str}")
             lines.append(f"Number of Observations: {n_obs}")
             lines.append("")
-        
+
         try:
             with open(meta_file, "w") as f:
                 f.write("\n".join(lines))
@@ -455,6 +455,6 @@ class ReportGenerator:
                     with open(out_file, "w") as f:
                         f.write(report_content)
                     logger.info(f"Saved consolidated report to {out_file}")
-                    
+
                 except Exception as e:
                     logger.error(f"Failed to write report {out_file}: {e}")
