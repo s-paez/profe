@@ -26,8 +26,8 @@ CLI Reference
      - Run the **full postprocessing** and output generation pipeline.
        Optionally specify a target name to process only that target.
    * - ``profe -pu [TARGET]``
-     - **Prepare Upload**: Pack local output products into an intermediate file
-       and prompt for an ExoFOP Data Tag.
+     - **Prepare Upload**: Pack local output products into an intermediate JSON
+       manifest and prompt for an ExoFOP Data Tag.
    * - ``profe -u [TARGET]``
      - **Upload**: Iteratively post the prepared files to ExoFOP using individual
        file endpoints to preserve exact scientific file names.
@@ -259,11 +259,11 @@ the postprocessing stage.
 
 1. **Prepare Upload** (``profe -pu [TARGET]``):
    Scans the local ``exofop/`` directories and prompts you for a **Data Tag** for each
-   pending date. It collects the valid files and generates an intermediate package
-   with metadata.
+   pending date. It collects the valid files and generates an intermediate JSON
+   metadata manifest.
 
 2. **Upload** (``profe -u [TARGET]``):
-   Extracts the prepared packages and iteratively uploads each file individually
+   Reads the prepared manifests and iteratively uploads each file individually
    to ExoFOP.
 
    * Authenticates using your local ``.exofop_credentials`` file.

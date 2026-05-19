@@ -50,8 +50,8 @@ def print_manual() -> None:
             outputs only for that target.
 
         \033[1m-pu [TARGETS], --prepare-upload [TARGETS]\033[0m
-            Prepares and packages data products into an intermediate .tar file
-            for ExoFOP upload. Excludes unnecessary files and prompts for a
+            Prepares and packages data products into an intermediate JSON metadata
+            file for ExoFOP upload. Excludes unnecessary files and prompts for a
             Data Tag. Optionally specify target(s) to prepare.
 
         \033[1m-u [TARGETS], --upload [TARGETS]\033[0m
