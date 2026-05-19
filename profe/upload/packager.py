@@ -116,6 +116,7 @@ class ExoFOPPackager:
         self, target_name: str, local_date: str, data_tag: str, files: List[Path]
     ) -> None:
         import json
+
         date_compact = local_date.replace("-", "")
 
         # Find next available sequence number
@@ -133,14 +134,16 @@ class ExoFOPPackager:
             "target_name": target_name,
             "data_tag": data_tag,
             "local_date": local_date,
-            "files": [str(f.resolve()) for f in files]
+            "files": [str(f.resolve()) for f in files],
         }
 
         try:
             with open(package_path, "w") as f:
                 json.dump(metadata, f, indent=4)
 
-            logger.info(f"Created metadata manifest for {len(files)} files at {package_path}")
+            logger.info(
+                f"Created metadata manifest for {len(files)} files at {package_path}"
+            )
             # Mark as prepared
             self.tracker.update_status(
                 target_name, local_date, "prepared", package_file=package_name

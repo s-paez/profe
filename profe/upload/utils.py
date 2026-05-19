@@ -39,7 +39,7 @@ class UploadTracker:
             logger.error(f"Error writing tracking file {self.tracker_file}: {e}")
 
     def update_status(
-        self, target: str, date: str, status: str, package_file: str = None
+        self, target: str, date: str, status: str, package_file: str | None = None
     ) -> None:
         """
         Update the status of an upload for a specific target and date.

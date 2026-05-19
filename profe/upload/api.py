@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class ExoFOPClient:
     """Handles communication with the ExoFOP-TESS website."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_dir = Path.cwd()
         self.creds_file = self.base_dir / ".exofop_credentials"
 
@@ -103,18 +103,14 @@ class ExoFOPClient:
                 planet_val = "0"  # '0' means no planet assigned, just the star
 
             files_to_upload = [Path(p) for p in file_paths if Path(p).is_file()]
-            
-            logger.info(
-                f"Found {len(files_to_upload)} files to upload individually."
-            )
+
+            logger.info(f"Found {len(files_to_upload)} files to upload individually.")
 
             all_success = True
 
             for file_path in files_to_upload:
                 # Determine File Type and Description
-                file_type = (
-                    "Light_Curve"  # Per user request, always use Light_Curve
-                )
+                file_type = "Light_Curve"  # Per user request, always use Light_Curve
                 lname = file_path.name.lower()
                 if "notes.txt" in lname:
                     file_desc = "Observing Notes"
@@ -163,9 +159,7 @@ class ExoFOPClient:
                 text_content = soup.get_text().lower()
 
                 if "already exists" in text_content:
-                    logger.warning(
-                        f"File {file_path.name} already exists on ExoFOP."
-                    )
+                    logger.warning(f"File {file_path.name} already exists on ExoFOP.")
                 elif (
                     "invalid" in text_content
                     or "error" in text_content

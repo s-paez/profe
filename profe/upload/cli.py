@@ -65,7 +65,9 @@ def run_upload(targets: List[str]) -> None:
 
                 success = client.upload_package(package_path)
                 if success:
-                    tracker.update_status(target, date, "uploaded", package_file=package_name)
+                    tracker.update_status(
+                        target, date, "uploaded", package_file=package_name
+                    )
                     logger.info(f"Marked {target} on {date} as uploaded.")
                 else:
                     logger.error(f"Failed to upload package {package_name}")
