@@ -22,3 +22,4 @@ reduction method proposed by `Paez et al. (2026) <https://doi.org/10.1093/rasti/
 
    profe.preprocess
    profe.output
+   profe.upload

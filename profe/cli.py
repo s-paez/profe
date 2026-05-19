@@ -49,6 +49,16 @@ def print_manual() -> None:
             Optionally specify a TARGET name (e.g., TOI-1234) to generate
             outputs only for that target.
 
+        \033[1m-pu [TARGETS], --prepare-upload [TARGETS]\033[0m
+            Prepares and packages data products into an intermediate JSON metadata
+            file for ExoFOP upload. Excludes unnecessary files and prompts for a
+            Data Tag. Optionally specify target(s) to prepare.
+
+        \033[1m-u [TARGETS], --upload [TARGETS]\033[0m
+            Uploads the prepared files to ExoFOP iteratively via the single-file
+            upload endpoint to preserve original scientific names, using
+            credentials stored in the .exofop_credentials file.
+
         \033[1m-h, --help\033[0m
             Shows the quick-reference help message and exits.
 
@@ -73,6 +83,12 @@ def print_manual() -> None:
 
         6. Generate outputs only for a specific target:
            $ profe -o "TOI-1234"
+
+        7. Prepare an ExoFOP upload for multiple targets:
+           $ profe --prepare-upload TOI-1234 TOI-5678
+
+        8. Upload all prepared ExoFOP packages:
+           $ profe --upload
     """
     print(man_text)
 
@@ -113,6 +129,20 @@ def main() -> None:
         default=False,
         metavar="TARGET",
         help="Run the output generation pipeline. Optionally specify a target name to process only that target.",
+    )
+    group.add_argument(
+        "-pu",
+        "--prepare-upload",
+        nargs="*",
+        metavar="TARGET",
+        help="Prepare and package data products into a .tar file for ExoFOP upload.",
+    )
+    group.add_argument(
+        "-u",
+        "--upload",
+        nargs="*",
+        metavar="TARGET",
+        help="Upload the previously prepared .tar files to ExoFOP.",
     )
 
     parser.add_argument(
@@ -175,6 +205,26 @@ def main() -> None:
             run_output(target=target)
         except ImportError as e:
             print(f"Error importing output module: {e}")
+            sys.exit(1)
+
+    elif args.prepare_upload is not None:
+        setup_logging("prepare_upload")
+        try:
+            from profe.upload.cli import run_prepare_upload
+
+            run_prepare_upload(targets=args.prepare_upload)
+        except ImportError as e:
+            print(f"Error importing upload module: {e}")
+            sys.exit(1)
+
+    elif args.upload is not None:
+        setup_logging("upload")
+        try:
+            from profe.upload.cli import run_upload
+
+            run_upload(targets=args.upload)
+        except ImportError as e:
+            print(f"Error importing upload module: {e}")
             sys.exit(1)
 
 

@@ -41,6 +41,15 @@ class ReportGenerator:
         try:
             df = pd.read_csv(tbl_file, sep=r"\t+", engine="python", encoding="latin1")
 
+            metrics["n_obs"] = len(df)
+            if "BJD_TDB" in df.columns:
+                try:
+                    bjd_min = float(df["BJD_TDB"].min())
+                    bjd_max = float(df["BJD_TDB"].max())
+                    metrics["duration_min"] = (bjd_max - bjd_min) * 24 * 60
+                except Exception:
+                    metrics["duration_min"] = None
+
             if "Radius" in df.columns:
                 metrics["ap_px"] = float(df["Radius"].iloc[0])
             elif "Source_Radius" in df.columns:
@@ -111,6 +120,53 @@ class ReportGenerator:
             logger.error(f"Error extracting fit metrics from {fit_file}: {e}")
 
         return metrics
+
+    def _generate_metadata_file(
+        self,
+        exofop_id: str,
+        utc_date: str,
+        bands_data: dict[str, dict[str, Any]],
+        out_dir: Path,
+    ) -> None:
+        """Generate a metadata file containing parameters required for ExoFOP upload."""
+        date_compact = utc_date.replace("-", "")
+        meta_file = out_dir / f"{exofop_id}-01_{date_compact}_exofop_metadata.txt"
+
+        if meta_file.exists():
+            logger.info(f"Skipping {meta_file.name}: already exists.")
+            return
+
+        lines = [
+            f"ExoFOP Metadata for {exofop_id} on {utc_date}",
+            "-" * 40,
+            f"Observation Date UT: {utc_date}",
+            "",
+        ]
+
+        for band, metrics in bands_data.items():
+            lines.append(f"--- Band: {band} ---")
+            scale = metrics.get("scale", 0)
+            fwhm_px = metrics.get("fwhm_px", 0)
+            psf_arcsec = fwhm_px * scale
+            n_obs = metrics.get("n_obs", "N/A")
+            duration = metrics.get("duration_min")
+            dur_str = f"{duration:.2f}" if duration is not None else "N/A"
+            ap_px = metrics.get("ap_px", 0)
+            ap_arcsec = ap_px * scale
+
+            lines.append(f"Pixel Scale (arcsec): {scale}")
+            lines.append(f"Estimated PSF (arcsec): {psf_arcsec:.2f}")
+            lines.append(f"Photometric Aperture Radius (arcsec): {ap_arcsec:.2f}")
+            lines.append(f"Observation Duration (minutes): {dur_str}")
+            lines.append(f"Number of Observations: {n_obs}")
+            lines.append("")
+
+        try:
+            with open(meta_file, "w") as f:
+                f.write("\n".join(lines))
+            logger.info(f"Saved ExoFOP metadata to {meta_file}")
+        except Exception as e:
+            logger.error(f"Failed to write metadata {meta_file}: {e}")
 
     def _get_predicted_metrics(
         self, obj_folder: Path, local_date: str, utc_date: str, exofop_id: str
@@ -378,6 +434,10 @@ class ReportGenerator:
                 out_dir = obj_folder / "exofop" / date
                 out_file = out_dir / filename
 
+                # Generate the ExoFOP metadata file even if notes already exist
+                out_dir.mkdir(parents=True, exist_ok=True)
+                self._generate_metadata_file(exofop_id, utc_date, bands_data, out_dir)
+
                 if out_file.exists():
                     logger.info(f"Skipping {out_file.name}: already exists.")
                     continue
@@ -395,5 +455,6 @@ class ReportGenerator:
                     with open(out_file, "w") as f:
                         f.write(report_content)
                     logger.info(f"Saved consolidated report to {out_file}")
+
                 except Exception as e:
                     logger.error(f"Failed to write report {out_file}: {e}")
