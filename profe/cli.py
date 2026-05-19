@@ -50,13 +50,14 @@ def print_manual() -> None:
             outputs only for that target.
 
         \033[1m-pu [TARGETS], --prepare-upload [TARGETS]\033[0m
-            Prepares and packages data products into a .tar file format
-            required by ExoFOP bulk upload. Excludes unnecessary files.
-            Prompts for a Data Tag. Optionally specify target(s).
+            Prepares and packages data products into an intermediate .tar file
+            for ExoFOP upload. Excludes unnecessary files and prompts for a
+            Data Tag. Optionally specify target(s) to prepare.
 
         \033[1m-u [TARGETS], --upload [TARGETS]\033[0m
-            Uploads the prepared .tar files to ExoFOP using credentials
-            stored in the .exofop_credentials file.
+            Uploads the prepared files to ExoFOP iteratively via the single-file
+            upload endpoint to preserve original scientific names, using
+            credentials stored in the .exofop_credentials file.
 
         \033[1m-h, --help\033[0m
             Shows the quick-reference help message and exits.
