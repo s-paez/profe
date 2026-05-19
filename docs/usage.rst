@@ -25,6 +25,12 @@ CLI Reference
    * - ``profe -o [TARGET]``
      - Run the **full postprocessing** and output generation pipeline.
        Optionally specify a target name to process only that target.
+   * - ``profe -pu [TARGET]``
+     - **Prepare Upload**: Pack local output products into an intermediate file
+       and prompt for an ExoFOP Data Tag.
+   * - ``profe -u [TARGET]``
+     - **Upload**: Iteratively post the prepared files to ExoFOP using individual
+       file endpoints to preserve exact scientific file names.
    * - ``profe man``
      - Display the detailed built-in manual.
    * - ``profe -h``
@@ -242,6 +248,32 @@ All files in ``exofop/{DATE}/{BAND}/`` follow the naming convention:
      - Predicted transit ingress, mid, and egress times from TTF.
    * - ``*_notes.txt``
      - Consolidated ExoFOP report with multi-band metrics and timing analysis.
+
+
+ExoFOP Uploading
+^^^^^^^^^^^^^^^^
+
+PROFE can directly upload all standardized products to the ExoFOP single-file upload
+endpoint (preserving the exact file names) for targets that have already completed
+the postprocessing stage.
+
+1. **Prepare Upload** (``profe -pu [TARGET]``):
+   Scans the local ``exofop/`` directories and prompts you for a **Data Tag** for each
+   pending date. It collects the valid files and generates an intermediate package
+   with metadata.
+
+2. **Upload** (``profe -u [TARGET]``):
+   Extracts the prepared packages and iteratively uploads each file individually
+   to ExoFOP.
+
+   * Authenticates using your local ``.exofop_credentials`` file.
+   * Automatically assigns the correct ExoFOP target and planet parameters.
+   * Derives the correct ExoFOP description from each file's name (e.g., Light Curve, Field of View, WCS FITS Image).
+   * Sets the 12-month proprietary period by default.
+
+.. note::
+   The upload system ensures files are only processed once. If a file already exists
+   on ExoFOP or an upload fails, PROFE will log the error and continue with the remaining items.
 
 
 Logging

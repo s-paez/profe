@@ -89,7 +89,19 @@ The TESS Transit Finder integration requires Swarthmore TTF credentials:
 
    myuser:mypassword
 
+ExoFOP Uploads
+^^^^^^^^^^^^^^
+
+Automated uploads to ExoFOP require valid account credentials:
+
+1. Create a file named ``.exofop_credentials``.
+2. Write your credentials in ``username:password`` format.
+
+.. code-block:: text
+
+   myuser:mypassword
+
 .. note::
 
-   Both features degrade gracefully: if the credential files are missing,
+   All features degrade gracefully: if the credential files are missing,
    PROFE logs a warning and skips the corresponding step.
