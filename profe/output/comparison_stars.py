@@ -306,6 +306,7 @@ class ComparisonStarsPlotter:
                 capsize=2,
                 color=colors[i],
                 label="_nolegend_",
+                rasterized=True,
             )
 
             t_bin, f_bin, e_bin = self._bin_data(t, f_norm, e_norm, self.bin_minutes)
@@ -327,6 +328,7 @@ class ComparisonStarsPlotter:
                 ),
                 capsize=2,
                 zorder=20,
+                rasterized=True,
             )
 
         if times_df is not None and not times_df.empty:
@@ -365,7 +367,9 @@ class ComparisonStarsPlotter:
             t = np.asarray(df[time_col].values) - t0
             y = df[col]
             color = "darkslateblue" if idx == 1 else "gray"
-            axs[idx].plot(t, y, ".", alpha=0.5, label="_nolegend_", ms=4, color=color)
+            axs[idx].plot(
+                t, y, ".", alpha=0.5, label="_nolegend_", ms=4, color=color, rasterized=True
+            )
             axs[idx].grid(ls=":", zorder=0, alpha=0.5)
             axs[idx].set_ylabel(ylabel)
 
@@ -388,6 +392,7 @@ class ComparisonStarsPlotter:
             label=r"X",
             ms=6,
             fillstyle="none",
+            rasterized=True,
         )
 
         axs[5].plot(
@@ -399,6 +404,7 @@ class ComparisonStarsPlotter:
             label=r"Y",
             ms=3,
             fillstyle="none",
+            rasterized=True,
         )
 
         axs[5].set_ylabel(r"Centroid shift [pixels]")

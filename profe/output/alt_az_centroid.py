@@ -152,7 +152,7 @@ class AltAzGuidingPlotter:
         # Alt-Az plot
         fig: Figure = plt.figure()
         ax: Any = fig.add_subplot(111, projection="polar")
-        ax.plot(az_rad, alt_rad, lw=2)
+        ax.plot(az_rad, alt_rad, lw=2, rasterized=True)
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
         ax.set_ylim(np.pi / 2, 0)

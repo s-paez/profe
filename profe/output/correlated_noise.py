@@ -310,9 +310,10 @@ class TimeAveragingPlotter:
                         capsize=0,
                         color="0.8",
                         zorder=0,
+                        rasterized=True,
                     )
-                    plt.loglog(b, r, ls="-", label=fil, color=fc)
-                    plt.loglog(b, se, ls="--", lw=2, color=fc)
+                    plt.loglog(b, r, ls="-", label=fil, color=fc, rasterized=True)
+                    plt.loglog(b, se, ls="--", lw=2, color=fc, rasterized=True)
                     has_data = True
 
                 if has_data:

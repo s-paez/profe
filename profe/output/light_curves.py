@@ -160,8 +160,20 @@ class LightCurvePlotter:
             return np.nan
         return float(np.std(clean_data) / np.abs(np.median(clean_data)) * 1000)
 
+    def _calc_rms_ppt_abs(self, data: Series) -> float:
+        """RMS in ppt for quantities already centered near zero (e.g. fit
+        residuals), where normalizing by the median would blow up."""
+        clean_data = data[~np.isnan(data)]
+        if len(clean_data) == 0:
+            return np.nan
+        return float(np.std(clean_data) * 1000)
+
     def _calc_rms_in_intervals(
-        self, time: NDArray, data: NDArray, times_df: Optional[DataFrame]
+        self,
+        time: NDArray,
+        data: NDArray,
+        times_df: Optional[DataFrame],
+        absolute: bool = False,
     ) -> float:
         if times_df is not None and not times_df.empty:
             mask = np.zeros(len(time), dtype=bool)
@@ -173,7 +185,8 @@ class LightCurvePlotter:
                 selected = data
         else:
             selected = data
-        return self._calc_rms_ppt(pd.Series(selected))
+        calc = self._calc_rms_ppt_abs if absolute else self._calc_rms_ppt
+        return calc(pd.Series(selected))
 
     def _bin_data(
         self, time: NDArray, col: NDArray, err_col: NDArray, bin_width_minutes: float
@@ -223,6 +236,110 @@ class LightCurvePlotter:
         elif band in ("ip", "i"):
             return "red"
         return None
+
+    def _load_transit_times(
+        self, obj_folder: Path, obj: str, local_date: str, utc_date: str
+    ) -> Optional[Dict[str, float]]:
+        """
+        Load the predicted ingress/egress BJD times from the `_transit_times.dat`
+        file produced by `TransitDataManager`, if present.
+
+        Only the first listed transit is used, matching the convention already
+        used for the predicted metrics in `report_generator.py`.
+
+        Args:
+            obj_folder (Path): Path to the object directory.
+            obj (str): Target object name.
+            local_date (str): Local observation date folder name.
+            utc_date (str): UTC observation date in YYYY-MM-DD format.
+
+        Returns:
+            Optional[dict[str, float]]: Dict with 'ingress' and 'egress' BJD
+            values, or None if no transit data is available.
+        """
+        exofop_id = get_exofop_id(obj)
+        date_compact = utc_date.replace("-", "")
+        dat_file = (
+            obj_folder
+            / "exofop"
+            / local_date
+            / f"{exofop_id}-01_{date_compact}_OAN-SPM-2m1-OPTICAM_transit_times.dat"
+        )
+        if not dat_file.exists():
+            return None
+        try:
+            df = pd.read_csv(dat_file, sep="\t")
+            if df.empty:
+                return None
+            row = df.iloc[0]
+            return {
+                "ingress": float(row["Ingress(BJD)"]),
+                "egress": float(row["Egress(BJD)"]),
+            }
+        except Exception as e:
+            self.logger.warning(f"Could not read transit times from {dat_file}: {e}")
+            return None
+
+    def _add_transit_markers(
+        self, axs, lc_ax, t0: float, transit: Optional[Dict[str, float]]
+    ) -> None:
+        """
+        Draw dotted vertical lines for predicted ingress/egress on every panel,
+        with "Expected Ingress"/"Expected Egress" annotations near the bottom
+        of the light curve panel.
+
+        Args:
+            axs: Iterable of all panel axes in the figure.
+            lc_ax: The light curve (flux) panel axes, where annotations go.
+            t0 (float): Time origin subtracted from the BJD times in the plot.
+            transit (Optional[dict[str, float]]): 'ingress'/'egress' BJD times,
+                or None to skip drawing.
+        """
+        if not transit:
+            return
+
+        ingress_t = transit["ingress"] - t0
+        egress_t = transit["egress"] - t0
+
+        for ax in axs:
+            ax.axvline(
+                ingress_t,
+                color="red",
+                linestyle=":",
+                linewidth=1.2,
+                alpha=0.8,
+                zorder=15,
+            )
+            ax.axvline(
+                egress_t,
+                color="red",
+                linestyle=":",
+                linewidth=1.2,
+                alpha=0.8,
+                zorder=15,
+            )
+
+        trans = lc_ax.get_xaxis_transform()
+        lc_ax.text(
+            ingress_t,
+            0.02,
+            "Expected\nIngress",
+            transform=trans,
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            color="red",
+        )
+        lc_ax.text(
+            egress_t,
+            0.02,
+            "Expected\nEgress",
+            transform=trans,
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            color="red",
+        )
 
     def _save_csv(self, date_folder: Path, filt_dict: Dict) -> None:
         """
@@ -291,7 +408,6 @@ class LightCurvePlotter:
         df_first = data[first_band]
         # Use nanmin for robust t0
         t0 = float(np.nanmin(df_first[time_col].to_numpy()))
-        time_mid = np.nanmedian(df_first[time_col].to_numpy() - t0)
 
         # 1. Light curve panel
         for band, df in data.items():
@@ -314,6 +430,7 @@ class LightCurvePlotter:
                 elinewidth=0.5,
                 capsize=2,
                 label="_nolegend_",
+                rasterized=True,
                 **kwargs,
             )
 
@@ -333,6 +450,7 @@ class LightCurvePlotter:
                 label=f"{band} (RMS: {rms_data:.2f} ppt, {rms_bin:.2f} ppt/{self.bin_minutes}min)",
                 capsize=2,
                 zorder=20,
+                rasterized=True,
                 **kwargs,
             )
 
@@ -345,20 +463,12 @@ class LightCurvePlotter:
                     f - t0, color="gray", linestyle="--", linewidth=0.8, alpha=0.7
                 )
 
+        transit = self._load_transit_times(obj_folder, obj, date, utc_date)
+        self._add_transit_markers(axs, axs[0], t0, transit)
+
         axs[0].set_ylabel("Relative Flux")
         axs[0].grid(ls=":", zorder=0, alpha=0.5)
-
-        # Legend position
-        f_med = float(df_first[flux_col].median())
-        f_std = np.nanstd(df_first[flux_col])
-        tr_mask = df_first[flux_col].to_numpy() < (f_med - 1.5 * f_std)
-        if np.sum(tr_mask) > 0:
-            tr_time_center = np.nanmean((df_first[time_col].to_numpy() - t0)[tr_mask])
-            loc_choice = "lower right" if tr_time_center < time_mid else "lower left"
-        else:
-            loc_choice = "lower left"
-
-        axs[0].legend(loc=loc_choice, fontsize=9)
+        axs[0].legend(loc="upper right", fontsize=9)
 
         panel_vars = [
             (1, "AIRMASS", "AIRMASS", False),
@@ -391,7 +501,9 @@ class LightCurvePlotter:
                     f"{band} (RMS: {rms:.2f} ppt)" if do_legend else "_nolegend_"
                 )
 
-                axs[idx].plot(t, y, ".", alpha=0.5, label=label_text, ms=4, **kwargs)
+                axs[idx].plot(
+                    t, y, ".", alpha=0.5, label=label_text, ms=4, rasterized=True, **kwargs
+                )
                 axs[idx].grid(ls=":", zorder=0, alpha=0.5)
             axs[idx].set_ylabel(ylabel)
             if do_legend:
@@ -410,6 +522,7 @@ class LightCurvePlotter:
             label=r"X",
             ms=6,
             fillstyle="none",
+            rasterized=True,
         )
 
         y_fits = df_first["Y(FITS)_T1"].to_numpy()
@@ -423,6 +536,7 @@ class LightCurvePlotter:
             label=r"Y",
             ms=3,
             fillstyle="none",
+            rasterized=True,
         )
 
         axs[5].set_ylabel(r"Centroid shift [pixels]")
@@ -472,6 +586,20 @@ class LightCurvePlotter:
         err_col = "rel_flux_err_T1"
         time_col = "BJD_TDB"
 
+        has_fn = "rel_flux_T1_fn" in df.columns and "rel_flux_err_T1_fn" in df.columns
+        if has_fn:
+            flux_col = "rel_flux_T1_fn"
+            err_col = "rel_flux_err_T1_fn"
+
+        has_fit = has_fn and all(
+            col in df.columns
+            for col in (
+                "rel_flux_T1_fn_model",
+                "rel_flux_T1_fn_residual",
+                "rel_flux_err_T1_fn_residual",
+            )
+        )
+
         exofop_obj = get_exofop_id(obj)
 
         t = df[time_col].to_numpy() - t0
@@ -494,12 +622,34 @@ class LightCurvePlotter:
             elinewidth=0.5,
             capsize=2,
             label="_nolegend_",
+            rasterized=True,
             **kwargs,
         )
 
         t_bin, f_bin, e_bin = self._bin_data(t, f, e, self.bin_minutes)
-        rms_data = self._calc_rms_in_intervals(t, f, times_df)
-        rms_bin = self._calc_rms_in_intervals(t_bin, f_bin, times_df)
+
+        if has_fit:
+            # Normalize model by its own median to remove baseline offset
+            model_raw = df["rel_flux_T1_fn_model"].to_numpy()
+            model_med = float(np.nanmedian(model_raw))
+            if model_med != 0 and not np.isnan(model_med):
+                model = model_raw / model_med
+            else:
+                model = model_raw / med_f
+
+            # Get residuals and their errors normalized by med_f
+            residual = df["rel_flux_T1_fn_residual"].to_numpy() / med_f
+            residual_err = df["rel_flux_err_T1_fn_residual"].to_numpy() / med_f
+
+            # Bin the residuals using the same bins as the light curve
+            _, residual_bin, residual_err_bin = self._bin_data(t, residual, residual_err, self.bin_minutes)
+
+            # Compute RMS of residuals (unbinned and binned)
+            rms_data = self._calc_rms_in_intervals(t, residual, times_df, absolute=True)
+            rms_bin = self._calc_rms_in_intervals(t_bin, residual_bin, times_df, absolute=True)
+        else:
+            rms_data = self._calc_rms_in_intervals(t, f, times_df)
+            rms_bin = self._calc_rms_in_intervals(t_bin, f_bin, times_df)
 
         markeredge = c if c else "black"
         axs[0].errorbar(
@@ -512,6 +662,7 @@ class LightCurvePlotter:
             label=f"{band} (RMS: {rms_data:.2f} ppt, {rms_bin:.2f} ppt/{self.bin_minutes}min)",
             capsize=2,
             zorder=20,
+            rasterized=True,
             **kwargs,
         )
 
@@ -524,9 +675,60 @@ class LightCurvePlotter:
                     f_t - t0, color="gray", linestyle="--", linewidth=0.8, alpha=0.7
                 )
 
+        transit = self._load_transit_times(obj_folder, obj, date, utc_date)
+        self._add_transit_markers(axs, axs[0], t0, transit)
+
+        if has_fit:
+            axs[0].plot(
+                t,
+                model,
+                "-",
+                color="black",
+                lw=1.2,
+                alpha=0.9,
+                zorder=18,
+                label="Model",
+                rasterized=True,
+            )
+
+            # Offset residuals below the light curve by a multiple of their own
+            # scatter so they never overlap with the data or model above them.
+            offset = float(np.nanmin(f)) - 5 * float(np.nanstd(residual))
+            axs[0].axhline(
+                offset, color="gray", linestyle=":", linewidth=0.8, alpha=0.6, zorder=5
+            )
+            # Plot unbinned residuals
+            axs[0].errorbar(
+                t,
+                residual + offset,
+                yerr=residual_err,
+                fmt=".",
+                alpha=0.15,
+                elinewidth=0.5,
+                capsize=2,
+                color="gray",
+                label="_nolegend_",
+                zorder=10,
+                rasterized=True,
+            )
+            # Plot binned residuals
+            axs[0].errorbar(
+                t_bin,
+                residual_bin + offset,
+                yerr=residual_err_bin,
+                fmt="o",
+                markerfacecolor="white",
+                markeredgecolor="gray",
+                color="gray",
+                label="Residuals",
+                capsize=2,
+                zorder=10,
+                rasterized=True,
+            )
+
         axs[0].set_ylabel("Relative Flux")
         axs[0].grid(ls=":", zorder=0, alpha=0.5)
-        axs[0].legend(loc="lower left", fontsize=9)
+        axs[0].legend(loc="upper right", fontsize=9)
         title_str = exofop_title(exofop_obj, utc_date, band)
         axs[0].set_title(title_str)
 
@@ -543,7 +745,9 @@ class LightCurvePlotter:
             kw: dict = {}
             if color:
                 kw["color"] = color
-            axs[idx].plot(t, y, ".", alpha=0.5, label="_nolegend_", ms=4, **kw)
+            axs[idx].plot(
+                t, y, ".", alpha=0.5, label="_nolegend_", ms=4, rasterized=True, **kw
+            )
             axs[idx].grid(ls=":", zorder=0, alpha=0.5)
             axs[idx].set_ylabel(ylabel)
 
@@ -560,6 +764,7 @@ class LightCurvePlotter:
             label=r"X",
             ms=6,
             fillstyle="none",
+            rasterized=True,
         )
         y_fits = df["Y(FITS)_T1"].to_numpy()
         y_rel = y_fits - y_fits[0]
@@ -572,6 +777,7 @@ class LightCurvePlotter:
             label=r"Y",
             ms=3,
             fillstyle="none",
+            rasterized=True,
         )
         axs[5].set_ylabel(r"Centroid shift [pixels]")
         axs[5].set_xlabel(r"BJD$_{TDB}$ - " + f"{t0:.2f}")
@@ -590,9 +796,11 @@ class LightCurvePlotter:
         self,
         obj: str,
         date: str,
+        utc_date: str,
         data: Dict,
         times_df: Optional[DataFrame],
         out_folder: Path,
+        obj_folder: Path,
     ) -> None:
         mpl.rcParams.update({"font.family": "serif", "font.size": 14})
         n_bands = len(data)
@@ -634,6 +842,7 @@ class LightCurvePlotter:
                 alpha=0.07,
                 elinewidth=0.5,
                 label="_nolegend_",
+                rasterized=True,
                 **kwargs,
             )
 
@@ -650,6 +859,7 @@ class LightCurvePlotter:
                 label=f"{band} ",
                 capsize=2,
                 ms=5,
+                rasterized=True,
                 **kwargs,
             )
 
@@ -658,6 +868,9 @@ class LightCurvePlotter:
             axs_lc[i].grid(ls=":", zorder=0, alpha=0.5)
 
         axs_lc[-1].set_xlabel(r"BJD$_{{TDB}}$ - " + f"{t0:.2f}")
+
+        transit = self._load_transit_times(obj_folder, obj, date, utc_date)
+        self._add_transit_markers(axs_lc, axs_lc[0], t0, transit)
 
         out_folder.mkdir(parents=True, exist_ok=True)
         out_file: Path = out_folder / f"{obj}_{date}_lc_{n_bands}panels.pdf"
@@ -747,7 +960,9 @@ class LightCurvePlotter:
                     self._create_multipanel_plot(
                         obj, date, utc_date, data, times, out_base, obj_folder
                     )
-                    self._create_lightcurves_plot(obj, date, data, times, out_base)
+                    self._create_lightcurves_plot(
+                        obj, date, utc_date, data, times, out_base, obj_folder
+                    )
                     # CSV saving
                     lcs_folder: Path = lcs_root / date
                     self._save_csv(lcs_folder, data)

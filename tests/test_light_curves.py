@@ -55,3 +55,18 @@ class TestLightCurvePlotter:
         # Should fall back to full data
         expected_rms = (np.std(flux) / np.abs(np.median(flux))) * 1000
         assert np.isclose(rms, expected_rms)
+
+    def test_calculate_rms_absolute(self):
+        """Test RMS calculation with absolute=True (standard deviation in ppt, no median division)."""
+        plotter = LightCurvePlotter()
+
+        # Data with median around 0 (like residuals)
+        residuals = pd.Series([-0.01, 0.01, -0.01, 0.01])
+        t = pd.Series([0, 1, 2, 3])
+        times = None
+
+        rms = plotter._calc_rms_in_intervals(t.values, residuals.values, times, absolute=True)
+
+        expected_rms = np.std(residuals) * 1000
+        assert np.isclose(rms, expected_rms)
+

@@ -114,7 +114,7 @@ class FieldViewPlotter:
         zscale = ZScaleInterval()
         vmin, vmax = zscale.get_limits(vis_data)
 
-        ax.imshow(vis_data, vmin=vmin, vmax=vmax, origin="lower")
+        ax.imshow(vis_data, vmin=vmin, vmax=vmax, origin="lower", rasterized=True)
         for name, (x, y) in stars.items():
             if name == "T1":
                 color = "limegreen"

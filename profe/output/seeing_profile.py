@@ -117,8 +117,8 @@ class SeeingProfilePlotter:
 
         # Plot
         fig, ax = plt.subplots(figsize=(8, 6))
-        rp.plot(ax=ax, c="m")
-        rp.plot_error(ax=ax, c="m")
+        rp.plot(ax=ax, c="m", rasterized=True)
+        rp.plot_error(ax=ax, c="m", rasterized=True)
         rad: Any = np.asanyarray(rp.data_radius)
         d_profile: Any = np.asanyarray(rp.data_profile)
         ax.scatter(rad, d_profile, s=1, alpha=0.5, rasterized=True)
