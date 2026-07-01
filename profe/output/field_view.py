@@ -151,7 +151,7 @@ class FieldViewPlotter:
             obj_dir, date_folder.name, utc_date, exofop_obj, band, "_field", ".png"
         )
         ap_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(ap_path, dpi=300)
+        plt.savefig(ap_path, dpi=100)
         plt.close(fig)
         self.logger.info(f"Saved aperture plot at {ap_path}")
 

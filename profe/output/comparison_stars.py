@@ -424,7 +424,7 @@ class ComparisonStarsPlotter:
             ".png",
         )
         out_file.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(out_file, format="png", dpi=300, bbox_inches="tight")
+        fig.savefig(out_file, format="png", dpi=130, bbox_inches="tight")
         plt.close(fig)
         self.logger.info(f"Plot: {out_file}, saved")
 
