@@ -586,26 +586,38 @@ class LightCurvePlotter:
         err_col = "rel_flux_err_T1"
         time_col = "BJD_TDB"
 
-        has_fn = "rel_flux_T1_fn" in df.columns and "rel_flux_err_T1_fn" in df.columns
+        df = df.sort_values(time_col).reset_index(drop=True)
+
+        has_fn = "rel_flux_T1_fn" in df.columns
         if has_fn:
             flux_col = "rel_flux_T1_fn"
-            err_col = "rel_flux_err_T1_fn"
+            if "rel_flux_err_T1_fn" in df.columns:
+                err_col = "rel_flux_err_T1_fn"
+            elif "rel_flux_err_T1" in df.columns:
+                err_col = "rel_flux_err_T1"
+            else:
+                err_cols = [c for c in df.columns if "err_T1" in c]
+                err_col = err_cols[0] if err_cols else "rel_flux_err_T1"
 
-        has_fit = has_fn and all(
-            col in df.columns
-            for col in (
-                "rel_flux_T1_fn_model",
-                "rel_flux_T1_fn_residual",
-                "rel_flux_err_T1_fn_residual",
-            )
-        )
+        has_fit = has_fn and "rel_flux_T1_fn_model" in df.columns and "rel_flux_T1_fn_residual" in df.columns
 
         exofop_obj = get_exofop_id(obj)
 
         t = df[time_col].to_numpy() - t0
-        med_f = float(np.nanmedian(df[flux_col].to_numpy()))
-        f = df[flux_col].to_numpy() / med_f
-        e = df[err_col].to_numpy() / med_f
+        if has_fn:
+            f = df[flux_col].to_numpy()
+            if err_col == "rel_flux_err_T1_fn":
+                e = df[err_col].to_numpy()
+            else:
+                raw_med = float(np.nanmedian(df["rel_flux_T1"].to_numpy()))
+                if raw_med != 0 and not np.isnan(raw_med):
+                    e = df[err_col].to_numpy() / raw_med
+                else:
+                    e = df[err_col].to_numpy()
+        else:
+            med_f = float(np.nanmedian(df[flux_col].to_numpy()))
+            f = df[flux_col].to_numpy() / med_f
+            e = df[err_col].to_numpy() / med_f
 
         c = self._get_band_color(band)
         kwargs: dict = {}
@@ -635,11 +647,26 @@ class LightCurvePlotter:
             if model_med != 0 and not np.isnan(model_med):
                 model = model_raw / model_med
             else:
-                model = model_raw / med_f
+                model = model_raw
 
-            # Get residuals and their errors normalized by med_f
-            residual = df["rel_flux_T1_fn_residual"].to_numpy() / med_f
-            residual_err = df["rel_flux_err_T1_fn_residual"].to_numpy() / med_f
+            # Get residuals and their errors
+            if has_fn:
+                residual = df["rel_flux_T1_fn_residual"].to_numpy()
+                if "rel_flux_err_T1_fn_residual" in df.columns:
+                    residual_err = df["rel_flux_err_T1_fn_residual"].to_numpy()
+                else:
+                    residual_err = e
+            else:
+                med_f = float(np.nanmedian(df["rel_flux_T1"].to_numpy()))
+                if med_f != 0 and not np.isnan(med_f):
+                    residual = df["rel_flux_T1_fn_residual"].to_numpy() / med_f
+                    if "rel_flux_err_T1_fn_residual" in df.columns:
+                        residual_err = df["rel_flux_err_T1_fn_residual"].to_numpy() / med_f
+                    else:
+                        residual_err = e
+                else:
+                    residual = df["rel_flux_T1_fn_residual"].to_numpy()
+                    residual_err = e
 
             # Bin the residuals using the same bins as the light curve
             _, residual_bin, residual_err_bin = self._bin_data(t, residual, residual_err, self.bin_minutes)
@@ -693,7 +720,9 @@ class LightCurvePlotter:
 
             # Offset residuals below the light curve by a multiple of their own
             # scatter so they never overlap with the data or model above them.
-            offset = float(np.nanmin(f)) - 5 * float(np.nanstd(residual))
+            # Use a robust minimum of f (1st percentile) to avoid outlier issues.
+            f_min = float(np.nanpercentile(f, 1.0)) if len(f) > 0 else 1.0
+            offset = f_min - 6 * float(np.nanstd(residual))
             axs[0].axhline(
                 offset, color="gray", linestyle=":", linewidth=0.8, alpha=0.6, zorder=5
             )
