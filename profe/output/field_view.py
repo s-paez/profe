@@ -110,7 +110,7 @@ class FieldViewPlotter:
         sky_max: float = float(target_row["Sky_Rad(max)"])
 
         # Plot
-        fig, ax = plt.subplots(figsize=(6, 6))
+        fig, ax = plt.subplots(figsize=(7, 6))
         zscale = ZScaleInterval()
         vmin, vmax = zscale.get_limits(vis_data)
 
@@ -147,6 +147,8 @@ class FieldViewPlotter:
                 )
             )
         ax.set_title(title_str, fontsize=9)
+        ax.set_ylabel("Y [pixels]")
+        ax.set_xlabel("X [pixels]")
         ap_path: Path = exofop_path(
             obj_dir, date_folder.name, utc_date, exofop_obj, band, "_field", ".png"
         )
