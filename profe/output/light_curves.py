@@ -686,7 +686,7 @@ class LightCurvePlotter:
             fmt="o",
             markerfacecolor="white",
             markeredgecolor=markeredge,
-            label=f"{band} (RMS: {rms_data:.2f} ppt, {rms_bin:.2f} ppt/{self.bin_minutes}min)",
+            label=f"{band}",
             capsize=2,
             zorder=20,
             rasterized=True,
