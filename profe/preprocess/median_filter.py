@@ -129,9 +129,9 @@ class MedianFilter:
             logger.warning(f"{image_path} skipped due to {e}")
             return None
 
-    def apply_filter(self) -> None:
+    def apply_filter(self, target_filter: str | None = None) -> None:
         """
-        Apply the median filter to all unprocessed FITS files in parallel.
+        Apply the median filter to unprocessed FITS files in parallel.
 
         Steps:
             1. Walk through `data_dir` to find FITS files matching `extensions`.
@@ -151,6 +151,9 @@ class MedianFilter:
                 continue
 
             target = parts[0]
+            if target_filter is not None and target.lower() != target_filter.lower():
+                continue
+
             if target in skipped_targets:
                 continue
 

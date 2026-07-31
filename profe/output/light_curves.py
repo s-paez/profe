@@ -714,7 +714,7 @@ class LightCurvePlotter:
                 lw=1.2,
                 alpha=0.9,
                 zorder=18,
-                label="Model",
+                label="AIJ Model",
                 rasterized=True,
             )
 

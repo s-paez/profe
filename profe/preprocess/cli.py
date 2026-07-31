@@ -18,6 +18,7 @@ def run_preprocess(
     cores: int | None = None,
     do_organize: bool = True,
     do_filter: bool = True,
+    target: str | None = None,
 ) -> None:
     """
     Executes the preprocessing pipeline.
@@ -54,7 +55,7 @@ def run_preprocess(
 
     if do_filter:
         mf = MedianFilter(n_processes=cores)
-        mf.apply_filter()
+        mf.apply_filter(target_filter=target)
 
 
 if __name__ == "__main__":

@@ -30,9 +30,11 @@ def print_manual() -> None:
             Runs ONLY the reorganization stage. Updates FITS headers (JD and
             UTMIDDLE), organizes files, and creates summary.dat.
 
-        \033[1m--filter\033[0m
+        \033[1m--filter [TARGET]\033[0m
             Runs ONLY the median filter stage. Skips processing if the
             corrected output directory already exists.
+            Optionally specify a TARGET name (e.g., TOI-1234) to run
+            the filter only for that target.
 
         \033[1m-c CORES, --cores CORES\033[0m
             Specifies the number of CPU cores to use during preprocessing.
@@ -74,6 +76,9 @@ def print_manual() -> None:
 
         3. Run ONLY the median filter step:
            $ profe --filter
+
+        4. Run the median filter step only for a specific target:
+           $ profe --filter "TOI-1234"
 
         4. Preprocess data restricting the process to 4 cores:
            $ profe -p -c 4
@@ -118,8 +123,11 @@ def main() -> None:
     )
     group.add_argument(
         "--filter",
-        action="store_true",
-        help="Run only the median filter stage.",
+        nargs="?",
+        const=True,
+        default=False,
+        metavar="TARGET",
+        help="Run only the median filter stage. Optionally specify a target name to process only that target.",
     )
     group.add_argument(
         "-o",
@@ -187,8 +195,12 @@ def main() -> None:
             do_organize = args.preprocess or args.organice
             do_filter = args.preprocess or args.filter
 
+            target = args.filter if isinstance(args.filter, str) else None
             run_preprocess(
-                cores=args.cores, do_organize=do_organize, do_filter=do_filter
+                cores=args.cores,
+                do_organize=do_organize,
+                do_filter=bool(do_filter),
+                target=target,
             )
         except ImportError as e:
             print(f"Error importing preprocessing module: {e}")
